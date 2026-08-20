@@ -25,7 +25,7 @@
 
   /* ---------- Sidebar ---------- */
   #sidebar{width:360px;min-width:360px;background:var(--panel);border-right:1px solid var(--border);
-    display:flex;flex-direction:column;overflow:hidden;}
+    display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;}
   #sidebar h1{font-family:var(--font-display);font-size:20px;letter-spacing:.2px;margin:0;
     padding:18px 16px 6px;font-weight:600;text-wrap:balance;}
   #sidebar .hint{padding:0 16px 12px;color:var(--sub);font-size:12px;line-height:1.6;}
@@ -69,7 +69,7 @@
   #progress .bar{height:4px;background:var(--panel2);border-radius:2px;overflow:hidden;margin-top:6px;}
   #progress .bar i{display:block;height:100%;width:0%;background:var(--accent);transition:.15s;}
 
-  #placelist{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:4px 10px 10px;}
+  #placelist{padding:4px 10px 10px;}
   .place{display:flex;gap:10px;align-items:center;padding:8px;border-radius:10px;cursor:pointer;
     border:1px solid transparent;margin-bottom:4px;}
   .place:hover{background:var(--panel2);}
@@ -833,13 +833,17 @@ function renderRoute(){
 
 function fitToClusters(){
   if (!clusters.length) return;
+  // account for the persistent sidebar on desktop so photos/route aren't hidden behind it
+  // (on mobile the drawer closes right after, so a plain side margin is enough)
+  const leftPad = isMobile() ? 80 : 380;
+  const padding = { top:80, bottom:80, left:leftPad, right:80 };
   if (clusters.length === 1){
-    map.flyTo({ center:[clusters[0].lon, clusters[0].lat], zoom:13 });
+    map.flyTo({ center:[clusters[0].lon, clusters[0].lat], zoom:13, padding });
     return;
   }
   const b = new maplibregl.LngLatBounds();
   clusters.forEach(c => b.extend([c.lon, c.lat]));
-  map.fitBounds(b, { padding: 80, maxZoom: 14 });
+  map.fitBounds(b, { padding, maxZoom: 14 });
 }
 
 /* ============ Detail panel ============ */
