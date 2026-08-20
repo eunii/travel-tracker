@@ -158,6 +158,15 @@
   .moving-marker .icon-badge::after{content:"";position:absolute;left:50%;top:100%;
     transform:translateX(-50%);border:5px solid transparent;border-top-color:rgba(18,21,28,.6);}
 
+  /* fit-all control (replaces geolocation) */
+  #btnFitAll{position:absolute;right:calc(12px + env(safe-area-inset-right));
+    bottom:calc(88px + env(safe-area-inset-bottom));z-index:5;width:42px;height:42px;
+    border-radius:10px;background:rgba(26,30,41,.96);border:1px solid var(--border);color:var(--text);
+    font-size:18px;box-shadow:0 4px 14px rgba(0,0,0,.4);display:none;align-items:center;
+    justify-content:center;padding:0;}
+  #btnFitAll.show{display:flex;}
+  #btnFitAll:hover{border-color:var(--accent);}
+
   /* timeline */
   #timeline{position:absolute;left:calc(12px + env(safe-area-inset-left));
     right:calc(12px + env(safe-area-inset-right));bottom:calc(12px + env(safe-area-inset-bottom));
@@ -173,6 +182,10 @@
     font-variant-numeric:tabular-nums;}
   #timeline select{background:var(--panel2);color:var(--text);border:1px solid var(--border);
     border-radius:6px;font-size:12px;padding:6px 8px;flex-shrink:0;}
+
+  @media (max-width: 820px){
+    #btnFitAll{bottom:calc(118px + env(safe-area-inset-bottom));}
+  }
 
   #lightbox{position:fixed;inset:0;background:rgba(0,0,0,.9);z-index:999;display:none;
     align-items:center;justify-content:center;flex-direction:column;gap:10px;}
@@ -296,6 +309,8 @@
       <div class="dp-grid" id="dpGrid"></div>
     </div>
 
+    <button id="btnFitAll" title="내 여행 전체 보기" aria-label="내 여행 전체 보기">⛶</button>
+
     <div id="timeline">
       <button id="btnPlay">▶</button>
       <div class="tl-mid">
@@ -342,8 +357,11 @@ let movingMarker = null;
 let movingIconType = 'smile';
 const MARKER_ICONS = { dot:null, smile:'😊', person:'🚶', car:'🚗', plane:'✈️', boat:'⛵' };
 let segDurations = [];     // ms per segment at speed=1
-let segZoom = [];          // target map zoom per segment, based on travel distance
+let segZoom = [];          // target map zoom per segment (fitBounds-based, pre-smoothed)
 let camZoom = null;        // current eased camera zoom while animating
+let camLon = null;         // eased camera center
+let camLat = null;
+let camFollow = true;      // auto camera follow during playback; off when user pans/zooms
 let animElapsed = 0;       // ms
 let animTotal = 0;
 let isPlaying = false;
@@ -352,6 +370,13 @@ let rafId = null;
 let lightboxPhotos = [];
 let lightboxIndex = 0;
 
+const CAM_MIN_ZOOM = 3;
+const CAM_MAX_ZOOM = 15;
+const CAM_ZOOM_SEG_DELTA = 1.5;   // max jump between adjacent segment target zooms
+const CAM_ZOOM_RATE = 2.6;        // max zoom levels per second while following
+const CAM_CENTER_BLEND = 0.18;    // center ease toward target each frame
+const SHORT_HOP_M = 800;          // below this, keep zoom nearly fixed / track marker tightly
+
 const $ = (id) => document.getElementById(id);
 
 /* ============ Map init ============ */
@@ -359,7 +384,7 @@ const BASEMAP_TILES = {
   dark: ['a','b','c','d'].map(s => `https://${s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png`),
   light: ['a','b','c','d'].map(s => `https://${s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png`)
 };
-let mapTheme = 'dark';
+let mapTheme = 'light';
 function buildMapStyle(theme){
   return {
     version: 8,
@@ -412,6 +437,11 @@ function setupRouteLayers(){
   }
 }
 
+function mapPadding(){
+  const leftPad = isMobile() ? 80 : 380;
+  return { top:80, bottom:100, left:leftPad, right:80 };
+}
+
 function initMap(){
   map = new maplibregl.Map({
     container: 'map',
@@ -432,6 +462,13 @@ function initMap(){
       if (animTotal > 0) renderFrame(animElapsed);
     }
   });
+
+  // user pan/zoom interrupts auto camera follow (playback continues)
+  const stopFollow = () => { if (camFollow) camFollow = false; };
+  map.on('dragstart', stopFollow);
+  map.on('zoomstart', (e) => { if (e.originalEvent) stopFollow(); });
+  map.on('rotatestart', stopFollow);
+  map.on('pitchstart', stopFollow);
 }
 function emptyLine(){ return { type:'Feature', geometry:{ type:'LineString', coordinates:[] }, properties:{} }; }
 
@@ -629,9 +666,11 @@ function resetState(){
   markers.forEach(m => m.remove()); markers = [];
   if (movingMarker) { movingMarker.remove(); movingMarker = null; }
   stopAnim(); animElapsed = 0;
+  camZoom = null; camLon = null; camLat = null; camFollow = true;
   $('placelist').innerHTML = '';
   closeDetail();
   $('timeline').classList.remove('show');
+  $('btnFitAll').classList.remove('show');
   if (map && map.getSource('route-full')) map.getSource('route-full').setData(emptyLine());
   if (map && map.getSource('route-progress')) map.getSource('route-progress').setData(emptyLine());
 }
@@ -643,15 +682,38 @@ function haversine(lat1,lon1,lat2,lon2){
   const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
   return 2*R*Math.asin(Math.sqrt(a));
 }
-function zoomForDistance(km){
-  if (km < 0.5) return 16;
-  if (km < 2) return 14;
-  if (km < 10) return 12;
-  if (km < 50) return 10;
-  if (km < 200) return 8;
-  if (km < 800) return 6;
-  return 4;
+
+/** Zoom level that fits both points with current map padding (clamped). */
+function zoomToFitPoints(a, b){
+  if (!map) return 12;
+  const same = Math.abs(a.lat - b.lat) < 1e-7 && Math.abs(a.lon - b.lon) < 1e-7;
+  if (same) return CAM_MAX_ZOOM;
+  const bounds = new maplibregl.LngLatBounds([a.lon, a.lat], [b.lon, b.lat]);
+  try {
+    const cam = map.cameraForBounds(bounds, { padding: mapPadding(), maxZoom: CAM_MAX_ZOOM });
+    if (cam && typeof cam.zoom === 'number'){
+      return Math.max(CAM_MIN_ZOOM, Math.min(CAM_MAX_ZOOM, cam.zoom));
+    }
+  } catch (e) { /* fall through */ }
+  const km = haversine(a.lat, a.lon, b.lat, b.lon) / 1000;
+  // continuous fallback (no coarse buckets)
+  const z = 14.5 - Math.log2(Math.max(km, 0.05) * 2);
+  return Math.max(CAM_MIN_ZOOM, Math.min(CAM_MAX_ZOOM, z));
 }
+
+function smoothSegZooms(raw){
+  if (!raw.length) return raw;
+  const out = raw.slice();
+  // Cap per-segment zoom-in so street-level doesn't slam in one hop after a flight,
+  // but allow ~4 levels so a few local stops recover detail. Zoom-out stays raw.
+  const maxIn = Math.max(CAM_ZOOM_SEG_DELTA, 4);
+  for (let i = 1; i < out.length; i++){
+    const d = out[i] - out[i-1];
+    if (d > maxIn) out[i] = out[i-1] + maxIn;
+  }
+  return out;
+}
+
 function buildClusters(radiusM, opts){
   opts = opts || {};
   const fit = opts.fit !== false;
@@ -662,7 +724,7 @@ function buildClusters(radiusM, opts){
   const customNameByPhoto = new Map();
   clusters.forEach(c => { if (c.customName) c.photos.forEach(p => customNameByPhoto.set(p, c.customName)); });
 
-  const raw = []; // {lat,lon,photos:[]}
+  const raw = []; // {lat,lon,photos:[]} — lat/lon = running centroid during grouping only
   for (const p of allPhotos){
     let best = null, bestD = Infinity;
     for (const c of raw){
@@ -679,6 +741,9 @@ function buildClusters(radiusM, opts){
   }
   raw.forEach(c => {
     c.photos.sort((a,b)=>a.time-b.time);
+    // route / marker waypoint = chronologically first GPS photo (visit entry), not average
+    c.lat = c.photos[0].lat;
+    c.lon = c.photos[0].lon;
     c.startTime = c.photos[0].time;
     c.endTime = c.photos[c.photos.length-1].time;
     c.rep = c.photos.reduce((best,x) => (x.w*x.h > best.w*best.h || (x.w*x.h===best.w*best.h && x.size>best.size)) ? x : best, c.photos[0]);
@@ -700,13 +765,14 @@ function buildClusters(radiusM, opts){
   renderPlaceList();
   renderMarkers();
   renderRoute();
+  $('btnFitAll').classList.toggle('show', clusters.length > 0);
   if (fit){
     setupAnimation();
+    camFollow = true;
     fitToClusters();
     if (isMobile()) closeSidebar();
   } else {
-    // passive zoom-driven re-cluster: keep segment timing in sync without
-    // touching the camera, the moving marker, or the in-progress route line
+    // keep segment timing in sync without touching the camera / moving marker
     computeSegments();
   }
   geocodeClusters();
@@ -864,17 +930,26 @@ function renderRoute(){
 
 function fitToClusters(){
   if (!clusters.length) return;
-  // account for the persistent sidebar on desktop so photos/route aren't hidden behind it
-  // (on mobile the drawer closes right after, so a plain side margin is enough)
-  const leftPad = isMobile() ? 80 : 380;
-  const padding = { top:80, bottom:80, left:leftPad, right:80 };
+  const padding = mapPadding();
+  camFollow = true;
   if (clusters.length === 1){
-    map.flyTo({ center:[clusters[0].lon, clusters[0].lat], zoom:13, padding });
+    map.flyTo({ center:[clusters[0].lon, clusters[0].lat], zoom:13, padding, duration:450, essential:true });
+    camZoom = 13;
+    camLon = clusters[0].lon;
+    camLat = clusters[0].lat;
     return;
   }
   const b = new maplibregl.LngLatBounds();
   clusters.forEach(c => b.extend([c.lon, c.lat]));
-  map.fitBounds(b, { padding, maxZoom: 14 });
+  map.fitBounds(b, { padding, maxZoom: CAM_MAX_ZOOM, duration:450, essential:true });
+  try {
+    const cam = map.cameraForBounds(b, { padding, maxZoom: CAM_MAX_ZOOM });
+    if (cam){
+      camZoom = cam.zoom;
+      camLon = cam.center.lng;
+      camLat = cam.center.lat;
+    }
+  } catch (e) { /* ignore */ }
 }
 
 /* ============ Detail panel ============ */
@@ -883,7 +958,10 @@ function selectCluster(i, fly){
   markers.forEach((m,idx) => m._el.classList.toggle('active', idx===i));
   $('placelist').querySelectorAll('.place').forEach(el => el.classList.toggle('active', Number(el.dataset.idx)===i));
   const c = clusters[i];
-  if (fly) map.flyTo({ center:[c.lon,c.lat], zoom: Math.max(map.getZoom(),14) });
+  if (fly){
+    camFollow = false;
+    map.flyTo({ center:[c.lon,c.lat], zoom: Math.max(map.getZoom(),14), duration:400, essential:true });
+  }
 
   $('dpTitle').textContent = placeLabel(c);
   $('dpSub').textContent = `Day ${c.day} · ${fmtDateTime(c.startTime)}${c.endTime>c.startTime ? ' ~ '+fmtDateTime(c.endTime) : ''} · 위도 ${c.lat.toFixed(5)}, 경도 ${c.lon.toFixed(5)}`;
@@ -1009,11 +1087,11 @@ function computeSegments(){
   const maxGap = Math.max(...gaps);
   segDurations = gaps.map(g => MIN_SEG_MS + (g/maxGap) * (MAX_SEG_MS - MIN_SEG_MS));
   animTotal = segDurations.reduce((a,b)=>a+b,0);
-  segZoom = [];
+  const rawZoom = [];
   for (let i=0;i<clusters.length-1;i++){
-    const km = haversine(clusters[i].lat, clusters[i].lon, clusters[i+1].lat, clusters[i+1].lon) / 1000;
-    segZoom.push(zoomForDistance(km));
+    rawZoom.push(zoomToFitPoints(clusters[i], clusters[i+1]));
   }
+  segZoom = smoothSegZooms(rawZoom);
   return true;
 }
 
@@ -1021,6 +1099,10 @@ function setupAnimation(){
   stopAnim();
   animElapsed = 0;
   camZoom = null;
+  camLon = null;
+  camLat = null;
+  // defer camera to fitToClusters / playback; first frame only syncs marker + UI
+  camFollow = false;
   if (map.getSource('route-progress')) map.getSource('route-progress').setData(emptyLine());
   if (!computeSegments()){
     if (movingMarker){ movingMarker.remove(); movingMarker = null; }
@@ -1055,8 +1137,9 @@ function lerpAlongRoute(a, b, t){
   return { lon: ll.lng, lat: ll.lat };
 }
 
-function renderFrame(elapsed){
+function renderFrame(elapsed, frameDt){
   elapsed = Math.max(0, Math.min(animTotal, elapsed));
+  const dtSec = Math.max(0, Math.min(0.05, (frameDt || 16) / 1000));
   let acc = 0, segIdx = 0, segT = 0;
   for (let i=0;i<segDurations.length;i++){
     if (elapsed <= acc + segDurations[i] || i === segDurations.length-1){
@@ -1069,10 +1152,36 @@ function renderFrame(elapsed){
   const { lat, lon } = lerpAlongRoute(a, b, segT);
   if (movingMarker) movingMarker.setLngLat([lon,lat]);
 
-  const targetZoom = segZoom[segIdx] ?? segZoom[segZoom.length-1] ?? map.getZoom();
-  if (camZoom == null) camZoom = targetZoom;
-  camZoom += (targetZoom - camZoom) * 0.08;
-  map.jumpTo({ center:[lon,lat], zoom: camZoom });
+  if (camFollow){
+    const hopM = haversine(a.lat, a.lon, b.lat, b.lon);
+    let targetZoom = segZoom[segIdx] ?? segZoom[segZoom.length-1] ?? map.getZoom();
+    // short hops: hold zoom near the fit of this hop (already stable via smoothing)
+    if (hopM < SHORT_HOP_M) targetZoom = Math.max(targetZoom, Math.min(CAM_MAX_ZOOM, targetZoom + 0.15));
+
+    // long hops: bias center toward segment midpoint so both ends stay in view
+    let targetLon = lon, targetLat = lat;
+    if (hopM >= SHORT_HOP_M){
+      const midT = 0.35 + 0.3 * Math.sin(Math.min(1, Math.max(0, segT)) * Math.PI);
+      const look = lerpAlongRoute(a, b, midT);
+      const w = Math.min(0.55, hopM / 80000);
+      targetLon = lon * (1 - w) + look.lon * w;
+      targetLat = lat * (1 - w) + look.lat * w;
+    }
+
+    if (camZoom == null) camZoom = targetZoom;
+    if (camLon == null){ camLon = targetLon; camLat = targetLat; }
+
+    const maxDz = CAM_ZOOM_RATE * dtSec;
+    const dz = targetZoom - camZoom;
+    if (dz > maxDz) camZoom += maxDz;
+    else if (dz < -maxDz) camZoom -= maxDz;
+    else camZoom += dz * Math.min(1, 4 * dtSec);
+
+    camLon += (targetLon - camLon) * Math.min(1, CAM_CENTER_BLEND * (dtSec * 60));
+    camLat += (targetLat - camLat) * Math.min(1, CAM_CENTER_BLEND * (dtSec * 60));
+
+    map.jumpTo({ center:[camLon, camLat], zoom: camZoom });
+  }
 
   const traveled = clusters.slice(0, segIdx+1).map(c=>[c.lon,c.lat]);
   traveled.push([lon,lat]);
@@ -1090,16 +1199,24 @@ function renderFrame(elapsed){
 function stepAnim(ts){
   if (!isPlaying) return;
   if (lastFrameTs == null) lastFrameTs = ts;
-  const dt = (ts - lastFrameTs) * Number($('tlSpeed').value);
+  const rawDt = ts - lastFrameTs;
+  const dt = rawDt * Number($('tlSpeed').value);
   lastFrameTs = ts;
   animElapsed += dt;
-  if (animElapsed >= animTotal){ animElapsed = animTotal; renderFrame(animElapsed); pauseAnim(); return; }
-  renderFrame(animElapsed);
+  if (animElapsed >= animTotal){ animElapsed = animTotal; renderFrame(animElapsed, rawDt); pauseAnim(); return; }
+  renderFrame(animElapsed, rawDt);
   rafId = requestAnimationFrame(stepAnim);
 }
 function playAnim(){
   if (clusters.length < 2) return;
   if (animElapsed >= animTotal) animElapsed = 0;
+  // resume follow from current map camera so zoom doesn't snap
+  if (camFollow){
+    camZoom = map.getZoom();
+    const c = map.getCenter();
+    camLon = c.lng;
+    camLat = c.lat;
+  }
   isPlaying = true; lastFrameTs = null;
   $('btnPlay').textContent = '⏸';
   rafId = requestAnimationFrame(stepAnim);
@@ -1108,11 +1225,21 @@ function pauseAnim(){ isPlaying = false; $('btnPlay').textContent = '▶'; if (r
 function stopAnim(){ pauseAnim(); animElapsed = 0; }
 
 $('btnPlay').addEventListener('click', () => isPlaying ? pauseAnim() : playAnim());
-$('btnReplay').addEventListener('click', () => { animElapsed = 0; renderFrame(0); if (!isPlaying) playAnim(); });
+$('btnReplay').addEventListener('click', () => {
+  animElapsed = 0;
+  camFollow = true;
+  camZoom = null; camLon = null; camLat = null;
+  renderFrame(0);
+  if (!isPlaying) playAnim();
+});
 $('tlRange').addEventListener('input', e => {
   pauseAnim();
   animElapsed = Number(e.target.value)/1000 * animTotal;
   renderFrame(animElapsed);
+});
+$('btnFitAll').addEventListener('click', () => {
+  if (!clusters.length) return;
+  fitToClusters();
 });
 
 /* ============ Utils ============ */
