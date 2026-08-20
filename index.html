@@ -132,12 +132,16 @@
     display:flex;align-items:center;justify-content:center;padding:0;}
   #detailpanel .dp-grid .ph-del:hover{background:var(--accent2);}
 
-  /* photo markers on map */
-  .photo-marker{width:46px;height:46px;border-radius:50%;background-size:cover;background-position:center;
-    background-color:var(--panel2);border:3px solid var(--accent);box-shadow:0 2px 8px rgba(0,0,0,.5);
-    cursor:pointer;position:relative;transition:transform .15s;}
-  .photo-marker:hover{transform:scale(1.1);}
-  .photo-marker.active{border-color:var(--accent2);}
+  /* photo markers on map
+     IMPORTANT: never put CSS `transform` / `transition:transform` on the Marker root.
+     MapLibre positions markers via style.transform; animating it makes pins lag the
+     WebGL route line + moving dot during camera-follow playback. */
+  .photo-marker{width:46px;height:46px;cursor:pointer;}
+  .photo-marker .pin{width:100%;height:100%;border-radius:50%;background-size:cover;
+    background-position:center;background-color:var(--panel2);border:3px solid var(--accent);
+    box-shadow:0 2px 8px rgba(0,0,0,.5);position:relative;transition:transform .15s;}
+  .photo-marker:hover .pin{transform:scale(1.1);}
+  .photo-marker.active .pin{border-color:var(--accent2);}
   .photo-marker .count{position:absolute;bottom:-6px;right:-6px;background:var(--accent2);color:#fff;
     font-size:10px;font-weight:700;border-radius:9px;min-width:18px;text-align:center;padding:1px 4px;
     border:2px solid var(--panel);}
@@ -145,10 +149,12 @@
   .moving-marker .core{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
     width:14px;height:14px;border-radius:50%;background:var(--good);
     box-shadow:0 0 0 4px rgba(62,207,142,.3),0 0 12px rgba(62,207,142,.8);border:2px solid #fff;}
-  .moving-marker .icon-badge{position:absolute;left:50%;bottom:6px;transform:translateX(-50%);
+  /* badge sits above the exact geo point; tip (::after) points at .core */
+  .moving-marker .icon-badge{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);
     width:34px;height:34px;border-radius:50%;background:rgba(18,21,28,.6);
     border:2px solid rgba(255,255,255,.35);box-shadow:0 2px 12px rgba(0,0,0,.55);
-    display:flex;align-items:center;justify-content:center;font-size:18px;line-height:1;}
+    display:flex;align-items:center;justify-content:center;font-size:18px;line-height:1;
+    pointer-events:none;}
   .moving-marker .icon-badge::after{content:"";position:absolute;left:50%;top:100%;
     transform:translateX(-50%);border:5px solid transparent;border-top-color:rgba(18,21,28,.6);}
 
@@ -799,14 +805,18 @@ function renderMarkers(){
   markers = clusters.map((c, i) => {
     const el = document.createElement('div');
     el.className = 'photo-marker';
-    el.style.backgroundImage = `url(${c.rep.url})`;
+    const pin = document.createElement('div');
+    pin.className = 'pin';
+    pin.style.backgroundImage = `url(${c.rep.url})`;
     if (c.photos.length > 1){
       const badge = document.createElement('div');
       badge.className = 'count'; badge.textContent = c.photos.length;
-      el.appendChild(badge);
+      pin.appendChild(badge);
     }
+    el.appendChild(pin);
     el.addEventListener('click', () => selectCluster(i, true));
-    const marker = new maplibregl.Marker({ element: el }).setLngLat([c.lon, c.lat]).addTo(map);
+    const marker = new maplibregl.Marker({ element: el, anchor: 'center' })
+      .setLngLat([c.lon, c.lat]).addTo(map);
     marker._el = el;
     return marker;
   });
@@ -1019,7 +1029,8 @@ function setupAnimation(){
 
   if (movingMarker) movingMarker.remove();
   const el = document.createElement('div');
-  movingMarker = new maplibregl.Marker({ element: el }).setLngLat([clusters[0].lon, clusters[0].lat]).addTo(map);
+  movingMarker = new maplibregl.Marker({ element: el, anchor: 'center' })
+    .setLngLat([clusters[0].lon, clusters[0].lat]).addTo(map);
   applyMarkerIcon();
 
   $('tlNow').textContent = fmtDateShort(clusters[0].startTime);
@@ -1027,6 +1038,21 @@ function setupAnimation(){
   $('tlPlace').textContent = dayPlaceLabel(clusters[0]);
   $('tlRange').value = 0;
   renderFrame(0);
+}
+
+/** Interpolate on the same Mercator straight line MapLibre draws for the route. */
+function lerpAlongRoute(a, b, t){
+  if (t <= 0) return { lon: a.lon, lat: a.lat };
+  if (t >= 1) return { lon: b.lon, lat: b.lat };
+  const aM = maplibregl.MercatorCoordinate.fromLngLat({ lng: a.lon, lat: a.lat });
+  const bM = maplibregl.MercatorCoordinate.fromLngLat({ lng: b.lon, lat: b.lat });
+  const m = new maplibregl.MercatorCoordinate(
+    aM.x + (bM.x - aM.x) * t,
+    aM.y + (bM.y - aM.y) * t,
+    aM.z + (bM.z - aM.z) * t
+  );
+  const ll = m.toLngLat();
+  return { lon: ll.lng, lat: ll.lat };
 }
 
 function renderFrame(elapsed){
@@ -1040,8 +1066,7 @@ function renderFrame(elapsed){
     acc += segDurations[i];
   }
   const a = clusters[segIdx], b = clusters[segIdx+1] || a;
-  const lat = a.lat + (b.lat-a.lat)*segT;
-  const lon = a.lon + (b.lon-a.lon)*segT;
+  const { lat, lon } = lerpAlongRoute(a, b, segT);
   if (movingMarker) movingMarker.setLngLat([lon,lat]);
 
   const targetZoom = segZoom[segIdx] ?? segZoom[segZoom.length-1] ?? map.getZoom();
