@@ -157,6 +157,8 @@
   #lightbox .lb-prev{left:18px;} #lightbox .lb-next{right:18px;}
 
   .maplibregl-ctrl-attrib{font-size:10px;}
+  .theme-toggle-ctrl button{font-size:15px;display:flex;align-items:center;justify-content:center;
+    line-height:1;}
 
   /* ---------- Mobile ---------- */
   #sidebarToggle{display:none;position:absolute;top:12px;left:12px;z-index:25;width:42px;height:42px;
@@ -310,45 +312,82 @@ let lightboxIndex = 0;
 const $ = (id) => document.getElementById(id);
 
 /* ============ Map init ============ */
-function initMap(){
-  map = new maplibregl.Map({
-    container: 'map',
-    attributionControl: false,
-    style: {
-      version: 8,
-      sources: {
-        basemap: {
-          type: 'raster',
-          tiles: [
-            'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-            'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-            'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-            'https://d.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-          ],
-          tileSize: 256,
-          maxzoom: 20,
-          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-        }
-      },
-      layers: [{ id: 'basemap', type: 'raster', source: 'basemap' }]
+const BASEMAP_TILES = {
+  dark: ['a','b','c','d'].map(s => `https://${s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png`),
+  light: ['a','b','c','d'].map(s => `https://${s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png`)
+};
+let mapTheme = 'dark';
+function buildMapStyle(theme){
+  return {
+    version: 8,
+    sources: {
+      basemap: {
+        type: 'raster',
+        tiles: BASEMAP_TILES[theme],
+        tileSize: 256,
+        maxzoom: 20,
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+      }
     },
-    center: [127.5, 36.5],
-    zoom: 6
-  });
-  map.addControl(new maplibregl.NavigationControl(), 'top-right');
-  map.addControl(new maplibregl.AttributionControl({compact:true}), 'top-right');
+    layers: [{ id: 'basemap', type: 'raster', source: 'basemap' }]
+  };
+}
 
-  map.on('load', () => {
+class ThemeToggleControl {
+  onAdd(){
+    this._container = document.createElement('div');
+    this._container.className = 'maplibregl-ctrl maplibregl-ctrl-group theme-toggle-ctrl';
+    this._btn = document.createElement('button');
+    this._btn.type = 'button';
+    this._btn.title = '지도 밝기 전환';
+    this._btn.textContent = mapTheme === 'dark' ? '☀️' : '🌙';
+    this._btn.addEventListener('click', () => {
+      mapTheme = mapTheme === 'dark' ? 'light' : 'dark';
+      this._btn.textContent = mapTheme === 'dark' ? '☀️' : '🌙';
+      map.setStyle(buildMapStyle(mapTheme));
+    });
+    this._container.appendChild(this._btn);
+    return this._container;
+  }
+  onRemove(){ this._container.parentNode.removeChild(this._container); }
+}
+
+function setupRouteLayers(){
+  if (!map.getSource('route-full')){
     map.addSource('route-full', { type:'geojson', data: emptyLine() });
     map.addLayer({
       id:'route-full-line', type:'line', source:'route-full',
       paint:{ 'line-color':'#4d9fff', 'line-width':2, 'line-dasharray':[2,2], 'line-opacity':0.5 }
     });
+  }
+  if (!map.getSource('route-progress')){
     map.addSource('route-progress', { type:'geojson', data: emptyLine() });
     map.addLayer({
       id:'route-progress-line', type:'line', source:'route-progress',
       paint:{ 'line-color':'#3ecf8e', 'line-width':4, 'line-opacity':0.9 }
     });
+  }
+}
+
+function initMap(){
+  map = new maplibregl.Map({
+    container: 'map',
+    attributionControl: false,
+    style: buildMapStyle(mapTheme),
+    center: [127.5, 36.5],
+    zoom: 6
+  });
+  map.addControl(new maplibregl.NavigationControl(), 'top-right');
+  map.addControl(new ThemeToggleControl(), 'top-right');
+  map.addControl(new maplibregl.AttributionControl({compact:true}), 'top-right');
+
+  map.on('load', setupRouteLayers);
+  map.on('style.load', () => {
+    setupRouteLayers();
+    if (clusters.length){
+      renderRoute();
+      if (animTotal > 0) renderFrame(animElapsed);
+    }
   });
 
   map.on('zoomend', () => {
