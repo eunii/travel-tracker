@@ -402,7 +402,7 @@ function initMap(){
   map.on('zoomend', () => {
     if (!allPhotos.length || isPlaying) return;
     if (performance.now() - lastRenderFrameTs < 250) return; // zoom was driven by our own route camera, not the user
-    buildClusters(currentRadiusMeters(), { fit:false, geocode:false });
+    buildClusters(currentRadiusMeters(), { fit:false });
   });
 }
 function emptyLine(){ return { type:'Feature', geometry:{ type:'LineString', coordinates:[] }, properties:{} }; }
@@ -636,7 +636,6 @@ function metersPerPixel(lat, zoom){
 function buildClusters(radiusM, opts){
   opts = opts || {};
   const fit = opts.fit !== false;
-  const geocode = opts.geocode !== false;
   if (activeCluster !== null) closeDetail();
   const raw = []; // {lat,lon,photos:[]}
   for (const p of allPhotos){
@@ -684,20 +683,25 @@ function buildClusters(radiusM, opts){
     // touching the camera, the moving marker, or the in-progress route line
     computeSegments();
   }
-  if (geocode) geocodeClusters();
+  geocodeClusters();
 }
 
 /* ============ Reverse geocoding (approximate place names) ============ */
 const geocodeCache = new Map();
 let geocodeChain = Promise.resolve();
+let lastGeocodeFetchAt = 0;
 
 function scheduleGeocode(task){
-  geocodeChain = geocodeChain.then(() => task()).catch(() => {}).then(() => new Promise(r => setTimeout(r, 1100)));
+  geocodeChain = geocodeChain.then(() => task()).catch(() => {});
 }
 
 async function reverseGeocode(lat, lon){
   const key = lat.toFixed(3) + ',' + lon.toFixed(3);
   if (geocodeCache.has(key)) return geocodeCache.get(key);
+  // only real network lookups need to be paced to Nominatim's ~1/sec limit; cache hits return immediately
+  const wait = 1100 - (Date.now() - lastGeocodeFetchAt);
+  if (wait > 0) await new Promise(r => setTimeout(r, wait));
+  lastGeocodeFetchAt = Date.now();
   let label = '';
   try {
     const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&zoom=12&accept-language=ko`);
@@ -722,12 +726,12 @@ async function reverseGeocode(lat, lon){
 }
 
 function geocodeClusters(){
-  const thisRunClusters = clusters;
-  clusters.forEach((c, idx) => {
+  clusters.forEach(c => {
+    if (c.placeName !== undefined) return;
     scheduleGeocode(async () => {
-      if (clusters !== thisRunClusters) return; // stale run (radius changed since)
       c.placeName = await reverseGeocode(c.lat, c.lon);
-      updateClusterLabel(idx);
+      const curIdx = clusters.indexOf(c);
+      if (curIdx !== -1) updateClusterLabel(curIdx);
     });
   });
 }
