@@ -121,12 +121,16 @@
   .photo-marker .count{position:absolute;bottom:-6px;right:-6px;background:var(--accent2);color:#fff;
     font-size:10px;font-weight:700;border-radius:9px;min-width:18px;text-align:center;padding:1px 4px;
     border:2px solid var(--panel);}
-  .moving-marker{width:16px;height:16px;border-radius:50%;background:var(--good);
+  .moving-marker{position:relative;width:0;height:0;}
+  .moving-marker .core{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+    width:14px;height:14px;border-radius:50%;background:var(--good);
     box-shadow:0 0 0 4px rgba(62,207,142,.3),0 0 12px rgba(62,207,142,.8);border:2px solid #fff;}
-  .moving-marker.icon{width:36px;height:36px;border-radius:50%;background:rgba(18,21,28,.6);
+  .moving-marker .icon-badge{position:absolute;left:50%;bottom:6px;transform:translateX(-50%);
+    width:34px;height:34px;border-radius:50%;background:rgba(18,21,28,.6);
     border:2px solid rgba(255,255,255,.35);box-shadow:0 2px 12px rgba(0,0,0,.55);
-    display:flex;align-items:center;justify-content:center;font-size:19px;line-height:1;
-    background-clip:padding-box;}
+    display:flex;align-items:center;justify-content:center;font-size:18px;line-height:1;}
+  .moving-marker .icon-badge::after{content:"";position:absolute;left:50%;top:100%;
+    transform:translateX(-50%);border:5px solid transparent;border-top-color:rgba(18,21,28,.6);}
 
   /* timeline */
   #timeline{position:absolute;left:12px;right:12px;bottom:12px;background:rgba(26,30,41,.96);
@@ -207,10 +211,10 @@
 
     <div id="controls" style="display:none;">
       <div class="ctrl-row">
-        <span>클러스터 반경 (같은 장소로 묶는 거리)</span>
-        <span id="radiusVal">150m</span>
+        <span>클러스터 민감도 (지도를 확대/축소하면 장소 개수가 자동으로 조절돼요)</span>
+        <span id="radiusVal">60px</span>
       </div>
-      <input type="range" id="radiusSlider" min="20" max="1000" step="10" value="150" style="width:100%;">
+      <input type="range" id="radiusSlider" min="20" max="150" step="5" value="60" style="width:100%;">
 
       <div class="ctrl-row" style="margin-top:10px;">
         <span>이동 마커 모양</span>
@@ -292,10 +296,13 @@ let movingMarker = null;
 let movingIconType = 'smile';
 const MARKER_ICONS = { dot:null, smile:'😊', person:'🚶', car:'🚗', plane:'✈️', boat:'⛵' };
 let segDurations = [];     // ms per segment at speed=1
+let segZoom = [];          // target map zoom per segment, based on travel distance
+let camZoom = null;        // current eased camera zoom while animating
 let animElapsed = 0;       // ms
 let animTotal = 0;
 let isPlaying = false;
 let lastFrameTs = null;
+let lastRenderFrameTs = 0; // used to suppress auto-recluster while the route camera is driving zoom
 let rafId = null;
 let lightboxPhotos = [];
 let lightboxIndex = 0;
@@ -306,6 +313,7 @@ const $ = (id) => document.getElementById(id);
 function initMap(){
   map = new maplibregl.Map({
     container: 'map',
+    attributionControl: false,
     style: {
       version: 8,
       sources: {
@@ -328,7 +336,7 @@ function initMap(){
     zoom: 6
   });
   map.addControl(new maplibregl.NavigationControl(), 'top-right');
-  map.addControl(new maplibregl.AttributionControl({compact:true}));
+  map.addControl(new maplibregl.AttributionControl({compact:true}), 'top-right');
 
   map.on('load', () => {
     map.addSource('route-full', { type:'geojson', data: emptyLine() });
@@ -341,6 +349,12 @@ function initMap(){
       id:'route-progress-line', type:'line', source:'route-progress',
       paint:{ 'line-color':'#3ecf8e', 'line-width':4, 'line-opacity':0.9 }
     });
+  });
+
+  map.on('zoomend', () => {
+    if (!allPhotos.length || isPlaying) return;
+    if (performance.now() - lastRenderFrameTs < 250) return; // zoom was driven by our own route camera, not the user
+    buildClusters(currentRadiusMeters(), { fit:false, geocode:false });
   });
 }
 function emptyLine(){ return { type:'Feature', geometry:{ type:'LineString', coordinates:[] }, properties:{} }; }
@@ -467,7 +481,8 @@ async function handleFileList(files){
     return;
   }
 
-  buildClusters(Number($('radiusSlider').value));
+  clusterPx = Number($('radiusSlider').value);
+  buildClusters(currentRadiusMeters());
 }
 
 function resetState(){
@@ -490,8 +505,24 @@ function haversine(lat1,lon1,lat2,lon2){
   const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
   return 2*R*Math.asin(Math.sqrt(a));
 }
+function zoomForDistance(km){
+  if (km < 0.5) return 16;
+  if (km < 2) return 14;
+  if (km < 10) return 12;
+  if (km < 50) return 10;
+  if (km < 200) return 8;
+  if (km < 800) return 6;
+  return 4;
+}
+function metersPerPixel(lat, zoom){
+  return 156543.03392 * Math.cos(lat * Math.PI / 180) / Math.pow(2, zoom);
+}
 
-function buildClusters(radiusM){
+function buildClusters(radiusM, opts){
+  opts = opts || {};
+  const fit = opts.fit !== false;
+  const geocode = opts.geocode !== false;
+  if (activeCluster !== null) closeDetail();
   const raw = []; // {lat,lon,photos:[]}
   for (const p of allPhotos){
     let best = null, bestD = Infinity;
@@ -530,9 +561,11 @@ function buildClusters(radiusM){
   renderMarkers();
   renderRoute();
   setupAnimation();
-  fitToClusters();
-  if (isMobile()) closeSidebar();
-  geocodeClusters();
+  if (fit){
+    fitToClusters();
+    if (isMobile()) closeSidebar();
+  }
+  if (geocode) geocodeClusters();
 }
 
 /* ============ Reverse geocoding (approximate place names) ============ */
@@ -590,9 +623,17 @@ function updateClusterLabel(idx){
   }
 }
 
-$('radiusSlider').addEventListener('input', e => { $('radiusVal').textContent = e.target.value + 'm'; });
+let clusterPx = 60;
+function currentRadiusMeters(){
+  if (!map) return clusterPx;
+  const c = map.getCenter();
+  return clusterPx * metersPerPixel(c.lat, map.getZoom());
+}
+
+$('radiusSlider').addEventListener('input', e => { $('radiusVal').textContent = e.target.value + 'px'; });
 $('radiusSlider').addEventListener('change', e => {
-  if (allPhotos.length) buildClusters(Number(e.target.value));
+  clusterPx = Number(e.target.value);
+  if (allPhotos.length) buildClusters(currentRadiusMeters());
 });
 
 /* ============ Moving marker icon picker ============ */
@@ -607,9 +648,9 @@ document.querySelectorAll('#iconPicker .icon-btn').forEach(btn => {
 function applyMarkerIcon(){
   if (!movingMarker) return;
   const el = movingMarker.getElement();
+  el.className = 'moving-marker';
   const iconChar = MARKER_ICONS[movingIconType];
-  if (iconChar){ el.className = 'moving-marker icon'; el.textContent = iconChar; }
-  else { el.className = 'moving-marker'; el.textContent = ''; }
+  el.innerHTML = '<span class="core"></span>' + (iconChar ? `<span class="icon-badge">${iconChar}</span>` : '');
 }
 
 /* ============ Rendering: markers, list, route ============ */
@@ -750,6 +791,12 @@ function setupAnimation(){
   const maxGap = Math.max(...gaps);
   segDurations = gaps.map(g => MIN_SEG_MS + (g/maxGap) * (MAX_SEG_MS - MIN_SEG_MS));
   animTotal = segDurations.reduce((a,b)=>a+b,0);
+  segZoom = [];
+  for (let i=0;i<clusters.length-1;i++){
+    const km = haversine(clusters[i].lat, clusters[i].lon, clusters[i+1].lat, clusters[i+1].lon) / 1000;
+    segZoom.push(zoomForDistance(km));
+  }
+  camZoom = null;
 
   if (movingMarker) movingMarker.remove();
   const el = document.createElement('div');
@@ -764,6 +811,7 @@ function setupAnimation(){
 }
 
 function renderFrame(elapsed){
+  lastRenderFrameTs = performance.now();
   elapsed = Math.max(0, Math.min(animTotal, elapsed));
   let acc = 0, segIdx = 0, segT = 0;
   for (let i=0;i<segDurations.length;i++){
@@ -777,6 +825,11 @@ function renderFrame(elapsed){
   const lat = a.lat + (b.lat-a.lat)*segT;
   const lon = a.lon + (b.lon-a.lon)*segT;
   if (movingMarker) movingMarker.setLngLat([lon,lat]);
+
+  const targetZoom = segZoom[segIdx] ?? segZoom[segZoom.length-1] ?? map.getZoom();
+  if (camZoom == null) camZoom = targetZoom;
+  camZoom += (targetZoom - camZoom) * 0.08;
+  map.jumpTo({ center:[lon,lat], zoom: camZoom });
 
   const traveled = clusters.slice(0, segIdx+1).map(c=>[c.lon,c.lat]);
   traveled.push([lon,lat]);
