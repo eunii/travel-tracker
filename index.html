@@ -65,6 +65,14 @@
   .icon-picker .dot-preview{width:12px;height:12px;border-radius:50%;background:var(--good);
     box-shadow:0 0 0 3px rgba(62,207,142,.3);}
 
+  .scale-picker{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;}
+  .scale-picker .scale-btn{display:flex;flex-direction:column;align-items:center;gap:4px;
+    padding:10px 4px;border-radius:10px;background:var(--panel2);border:1px solid var(--border);
+    color:var(--sub);font-size:11px;font-weight:600;}
+  .scale-picker .scale-emoji{font-size:20px;}
+  .scale-picker .scale-btn:hover{border-color:var(--accent);}
+  .scale-picker .scale-btn.active{border-color:var(--accent);background:rgba(77,159,255,.15);color:var(--text);}
+
   #progress{padding:0 16px 12px;font-size:12px;color:var(--sub);display:none;}
   #progress .bar{height:4px;background:var(--panel2);border-radius:2px;overflow:hidden;margin-top:6px;}
   #progress .bar i{display:block;height:100%;width:0%;background:var(--accent);transition:.15s;}
@@ -103,7 +111,14 @@
   #detailpanel.show{display:flex;}
   #detailpanel .dp-head{padding:12px 14px;border-bottom:1px solid var(--border);display:flex;
     justify-content:space-between;align-items:flex-start;gap:8px;}
+  #detailpanel .dp-title-row{display:flex;align-items:center;gap:6px;}
   #detailpanel .dp-title{font-family:var(--font-display);font-size:16px;font-weight:600;}
+  #detailpanel .dp-title-input{font-family:var(--font-display);font-size:16px;font-weight:600;
+    background:var(--panel2);border:1px solid var(--accent);border-radius:6px;color:var(--text);
+    padding:2px 6px;width:170px;}
+  #detailpanel .dp-edit{background:none;border:none;color:var(--sub);font-size:12px;padding:2px 4px;
+    opacity:.7;}
+  #detailpanel .dp-edit:hover{opacity:1;}
   #detailpanel .dp-sub{font-size:11px;color:var(--sub);margin-top:2px;font-variant-numeric:tabular-nums;}
   #detailpanel .dp-close{background:none;border:none;color:var(--sub);font-size:16px;padding:2px 6px;}
   #detailpanel .dp-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:10px;
@@ -112,6 +127,10 @@
     background-color:var(--panel2);cursor:pointer;position:relative;}
   #detailpanel .dp-grid .ph.rep::after{content:"대표";position:absolute;top:3px;left:3px;
     background:var(--accent);color:#08131f;font-size:9px;font-weight:700;padding:1px 4px;border-radius:4px;}
+  #detailpanel .dp-grid .ph-del{position:absolute;top:3px;right:3px;width:20px;height:20px;
+    border-radius:50%;background:rgba(0,0,0,.6);border:none;color:#fff;font-size:11px;line-height:1;
+    display:flex;align-items:center;justify-content:center;padding:0;}
+  #detailpanel .dp-grid .ph-del:hover{background:var(--accent2);}
 
   /* photo markers on map */
   .photo-marker{width:46px;height:46px;border-radius:50%;background-size:cover;background-position:center;
@@ -156,6 +175,9 @@
   #lightbox .lb-info{color:var(--sub);font-size:13px;}
   #lightbox .lb-close{position:absolute;top:calc(18px + env(safe-area-inset-top));
     right:calc(22px + env(safe-area-inset-right));background:none;color:#fff;font-size:26px;}
+  #lightbox .lb-del{position:absolute;top:calc(18px + env(safe-area-inset-top));
+    right:calc(66px + env(safe-area-inset-right));background:none;border:none;color:#fff;
+    font-size:20px;padding:2px 6px;}
   #lightbox .lb-nav{position:absolute;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.1);
     color:#fff;font-size:20px;width:44px;height:44px;border-radius:50%;}
   #lightbox .lb-prev{left:calc(18px + env(safe-area-inset-left));}
@@ -222,10 +244,13 @@
 
     <div id="controls" style="display:none;">
       <div class="ctrl-row">
-        <span>클러스터 민감도 (지도를 확대/축소하면 장소 개수가 자동으로 조절돼요)</span>
-        <span id="radiusVal">60px</span>
+        <span>여행 스케일</span>
       </div>
-      <input type="range" id="radiusSlider" min="20" max="150" step="5" value="60" style="width:100%;">
+      <div id="scalePicker" class="scale-picker">
+        <button class="scale-btn" data-scale="day"><span class="scale-emoji">🏘️</span><span>하루 나들이</span></button>
+        <button class="scale-btn" data-scale="city"><span class="scale-emoji">🏙️</span><span>도시간 이동</span></button>
+        <button class="scale-btn" data-scale="country"><span class="scale-emoji">🌏</span><span>국가간 이동</span></button>
+      </div>
 
       <div class="ctrl-row" style="margin-top:10px;">
         <span>이동 마커 모양</span>
@@ -254,7 +279,10 @@
     <div id="detailpanel">
       <div class="dp-head">
         <div>
-          <div class="dp-title" id="dpTitle">장소</div>
+          <div class="dp-title-row">
+            <div class="dp-title" id="dpTitle">장소</div>
+            <button class="dp-edit" id="dpEdit" title="이름 바꾸기">✏️</button>
+          </div>
           <div class="dp-sub" id="dpSub"></div>
         </div>
         <button class="dp-close" id="dpClose">✕</button>
@@ -285,6 +313,7 @@
 
 <div id="lightbox">
   <button class="lb-close" id="lbClose">✕</button>
+  <button class="lb-del" id="lbDel" title="이 사진 삭제">🗑️</button>
   <button class="lb-nav lb-prev" id="lbPrev">‹</button>
   <img id="lbImg" src="">
   <div class="lb-info" id="lbInfo"></div>
@@ -313,7 +342,6 @@ let animElapsed = 0;       // ms
 let animTotal = 0;
 let isPlaying = false;
 let lastFrameTs = null;
-let lastRenderFrameTs = 0; // used to suppress auto-recluster while the route camera is driving zoom
 let rafId = null;
 let lightboxPhotos = [];
 let lightboxIndex = 0;
@@ -397,12 +425,6 @@ function initMap(){
       renderRoute();
       if (animTotal > 0) renderFrame(animElapsed);
     }
-  });
-
-  map.on('zoomend', () => {
-    if (!allPhotos.length || isPlaying) return;
-    if (performance.now() - lastRenderFrameTs < 250) return; // zoom was driven by our own route camera, not the user
-    buildClusters(currentRadiusMeters(), { fit:false });
   });
 }
 function emptyLine(){ return { type:'Feature', geometry:{ type:'LineString', coordinates:[] }, properties:{} }; }
@@ -592,12 +614,7 @@ async function handleFileList(files){
     return;
   }
 
-  clusterPx = Number($('radiusSlider').value);
-  // the map is still at its default world-view zoom here, so a pixel-based radius
-  // would be huge (100km+) and merge unrelated places; use a fixed distance for
-  // this first pass, then let fitToClusters()'s resulting zoomend re-cluster
-  // properly once the map is actually zoomed to the photos.
-  buildClusters(150);
+  buildClusters(SCALE_PRESETS[travelScale]);
 }
 
 function resetState(){
@@ -629,10 +646,6 @@ function zoomForDistance(km){
   if (km < 800) return 6;
   return 4;
 }
-function metersPerPixel(lat, zoom){
-  return 156543.03392 * Math.cos(lat * Math.PI / 180) / Math.pow(2, zoom);
-}
-
 function buildClusters(radiusM, opts){
   opts = opts || {};
   const fit = opts.fit !== false;
@@ -746,17 +759,15 @@ function updateClusterLabel(idx){
   }
 }
 
-let clusterPx = 60;
-function currentRadiusMeters(){
-  if (!map) return clusterPx;
-  const c = map.getCenter();
-  return clusterPx * metersPerPixel(c.lat, map.getZoom());
-}
-
-$('radiusSlider').addEventListener('input', e => { $('radiusVal').textContent = e.target.value + 'px'; });
-$('radiusSlider').addEventListener('change', e => {
-  clusterPx = Number(e.target.value);
-  if (allPhotos.length) buildClusters(currentRadiusMeters());
+const SCALE_PRESETS = { day: 150, city: 3000, country: 30000 };
+let travelScale = 'day';
+document.querySelectorAll('#scalePicker .scale-btn').forEach(btn => {
+  btn.classList.toggle('active', btn.dataset.scale === travelScale);
+  btn.addEventListener('click', () => {
+    travelScale = btn.dataset.scale;
+    document.querySelectorAll('#scalePicker .scale-btn').forEach(b => b.classList.toggle('active', b === btn));
+    if (allPhotos.length) buildClusters(SCALE_PRESETS[travelScale]);
+  });
 });
 
 /* ============ Moving marker icon picker ============ */
@@ -824,7 +835,7 @@ function renderPlaceList(){
   });
 }
 function placeLabel(c){
-  const name = c.placeName || `장소 ${clusters.indexOf(c)+1}`;
+  const name = c.customName || c.placeName || `장소 ${clusters.indexOf(c)+1}`;
   return `${name} · 사진 ${c.photos.length}장`;
 }
 function dayPlaceLabel(c){ return `Day ${c.day} · ${placeLabel(c)}`; }
@@ -867,6 +878,16 @@ function selectCluster(i, fly){
     div.style.backgroundImage = `url(${p.url})`;
     div.title = p.name;
     div.addEventListener('click', () => openLightbox(c.photos, pi));
+    const del = document.createElement('button');
+    del.className = 'ph-del';
+    del.type = 'button';
+    del.title = '이 사진 삭제';
+    del.textContent = '✕';
+    del.addEventListener('click', e => {
+      e.stopPropagation();
+      if (confirm('이 사진을 삭제할까요?')) deletePhoto(p, c);
+    });
+    div.appendChild(del);
     grid.appendChild(div);
   });
   $('detailpanel').classList.add('show');
@@ -878,6 +899,56 @@ function closeDetail(){
   markers.forEach(m => m._el.classList.remove('active'));
 }
 $('dpClose').addEventListener('click', closeDetail);
+$('dpEdit').addEventListener('click', () => {
+  if (activeCluster === null) return;
+  const c = clusters[activeCluster];
+  const current = c.customName || c.placeName || `장소 ${activeCluster+1}`;
+  const val = prompt('장소 이름 바꾸기', current);
+  if (val === null) return;
+  c.customName = val.trim() || undefined;
+  renderPlaceList();
+  selectCluster(activeCluster, false);
+});
+
+/* ============ Delete a photo ============ */
+function deletePhoto(photo, cluster){
+  URL.revokeObjectURL(photo.url);
+  allPhotos = allPhotos.filter(p => p !== photo);
+  cluster.photos = cluster.photos.filter(p => p !== photo);
+
+  $('statTotal').textContent = Math.max(0, Number($('statTotal').textContent) - 1);
+  $('statGeo').textContent = allPhotos.length;
+
+  if (allPhotos.length === 0){
+    closeDetail();
+    resetState();
+    $('stats').style.display = 'none';
+    $('controls').style.display = 'none';
+    $('empty').innerHTML = '아직 불러온 사진이 없습니다.<br>왼쪽 위 버튼으로 폴더를 선택해 보세요.';
+    $('empty').style.display = 'block';
+    return;
+  }
+  if (cluster.photos.length === 0){
+    closeDetail();
+    buildClusters(SCALE_PRESETS[travelScale], { fit:false });
+    return;
+  }
+
+  cluster.photos.sort((a,b)=>a.time-b.time);
+  cluster.startTime = cluster.photos[0].time;
+  cluster.endTime = cluster.photos[cluster.photos.length-1].time;
+  cluster.rep = cluster.photos.reduce((best,x) => (x.w*x.h > best.w*best.h || (x.w*x.h===best.w*best.h && x.size>best.size)) ? x : best, cluster.photos[0]);
+
+  const first = allPhotos[0].time, last = allPhotos[allPhotos.length-1].time;
+  $('statRange').textContent = fmtDateShort(first) + ' ~ ' + fmtDateShort(last);
+
+  renderPlaceList();
+  renderMarkers();
+  renderRoute();
+  computeSegments();
+  const idx = clusters.indexOf(cluster);
+  if (idx !== -1) selectCluster(idx, false);
+}
 
 /* ============ Lightbox ============ */
 function openLightbox(photos, i){
@@ -890,6 +961,20 @@ function showLightboxImg(){
   $('lbImg').src = p.url;
   $('lbInfo').textContent = `${p.name} · ${fmtDateTime(p.time)}`;
 }
+$('lbDel').addEventListener('click', () => {
+  const p = lightboxPhotos[lightboxIndex];
+  if (!p || !confirm('이 사진을 삭제할까요?')) return;
+  const cluster = clusters.find(c => c.photos.includes(p));
+  const wasLast = lightboxPhotos.length === 1;
+  deletePhoto(p, cluster);
+  if (wasLast || !cluster || cluster.photos.length === 0){
+    $('lightbox').classList.remove('show');
+    return;
+  }
+  lightboxPhotos = cluster.photos;
+  lightboxIndex = Math.min(lightboxIndex, lightboxPhotos.length - 1);
+  showLightboxImg();
+});
 $('lbClose').addEventListener('click', () => $('lightbox').classList.remove('show'));
 $('lightbox').addEventListener('click', e => { if (e.target.id==='lightbox') $('lightbox').classList.remove('show'); });
 $('lbPrev').addEventListener('click', () => { lightboxIndex = (lightboxIndex-1+lightboxPhotos.length)%lightboxPhotos.length; showLightboxImg(); });
@@ -947,7 +1032,6 @@ function setupAnimation(){
 }
 
 function renderFrame(elapsed){
-  lastRenderFrameTs = performance.now();
   elapsed = Math.max(0, Math.min(animTotal, elapsed));
   let acc = 0, segIdx = 0, segT = 0;
   for (let i=0;i<segDurations.length;i++){
