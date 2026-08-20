@@ -69,7 +69,7 @@
   #progress .bar{height:4px;background:var(--panel2);border-radius:2px;overflow:hidden;margin-top:6px;}
   #progress .bar i{display:block;height:100%;width:0%;background:var(--accent);transition:.15s;}
 
-  #placelist{flex:1;overflow-y:auto;padding:4px 10px 10px;}
+  #placelist{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:4px 10px 10px;}
   .place{display:flex;gap:10px;align-items:center;padding:8px;border-radius:10px;cursor:pointer;
     border:1px solid transparent;margin-bottom:4px;}
   .place:hover{background:var(--panel2);}
@@ -608,10 +608,14 @@ function buildClusters(radiusM, opts){
   renderPlaceList();
   renderMarkers();
   renderRoute();
-  setupAnimation();
   if (fit){
+    setupAnimation();
     fitToClusters();
     if (isMobile()) closeSidebar();
+  } else {
+    // passive zoom-driven re-cluster: keep segment timing in sync without
+    // touching the camera, the moving marker, or the in-progress route line
+    computeSegments();
   }
   if (geocode) geocodeClusters();
 }
@@ -758,7 +762,6 @@ function renderRoute(){
   if (!map.getSource('route-full')) return;
   const coords = clusters.map(c => [c.lon, c.lat]);
   map.getSource('route-full').setData({ type:'Feature', geometry:{type:'LineString', coordinates: coords.length>1?coords:[]}, properties:{} });
-  map.getSource('route-progress').setData(emptyLine());
 }
 
 function fitToClusters(){
@@ -826,12 +829,11 @@ document.addEventListener('keydown', e => {
 /* ============ Animation (동선 재생) ============ */
 const MIN_SEG_MS = 700, MAX_SEG_MS = 4200;
 
-function setupAnimation(){
-  stopAnim();
-  animElapsed = 0;
+function computeSegments(){
   if (clusters.length < 2){
+    segDurations = []; segZoom = []; animTotal = 0;
     $('timeline').classList.remove('show');
-    return;
+    return false;
   }
   $('timeline').classList.add('show');
   const gaps = [];
@@ -844,7 +846,18 @@ function setupAnimation(){
     const km = haversine(clusters[i].lat, clusters[i].lon, clusters[i+1].lat, clusters[i+1].lon) / 1000;
     segZoom.push(zoomForDistance(km));
   }
+  return true;
+}
+
+function setupAnimation(){
+  stopAnim();
+  animElapsed = 0;
   camZoom = null;
+  if (map.getSource('route-progress')) map.getSource('route-progress').setData(emptyLine());
+  if (!computeSegments()){
+    if (movingMarker){ movingMarker.remove(); movingMarker = null; }
+    return;
+  }
 
   if (movingMarker) movingMarker.remove();
   const el = document.createElement('div');
