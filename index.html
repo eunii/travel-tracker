@@ -328,7 +328,8 @@
 
 /* ============ State ============ */
 let allPhotos = [];        // {file,url,lat,lon,time,w,h}
-let clusters = [];         // ordered chronologically {lat,lon,photos[],rep,startTime,endTime}
+let clusters = [];         // unique places, ordered by first visit {lat,lon,photos[],rep,startTime,endTime}
+let visits = [];           // chronological visit sequence for the route/animation: {place,startTime,endTime,day}
 let markers = [];
 let activeCluster = null;
 let map = null;
@@ -338,6 +339,7 @@ const MARKER_ICONS = { dot:null, smile:'😊', person:'🚶', car:'🚗', plane:
 let segDurations = [];     // ms per segment at speed=1
 let segZoom = [];          // target map zoom per segment, based on travel distance
 let camZoom = null;        // current eased camera zoom while animating
+let lastCamUpdateAt = 0;   // throttles camera easeTo calls during autoplay
 let animElapsed = 0;       // ms
 let animTotal = 0;
 let isPlaying = false;
@@ -650,6 +652,12 @@ function buildClusters(radiusM, opts){
   opts = opts || {};
   const fit = opts.fit !== false;
   if (activeCluster !== null) closeDetail();
+
+  // preserve any user-set custom names across re-clustering (scale switch, photo
+  // deletion), keyed by photo identity since photo objects stay stable across rebuilds
+  const customNameByPhoto = new Map();
+  clusters.forEach(c => { if (c.customName) c.photos.forEach(p => customNameByPhoto.set(p, c.customName)); });
+
   const raw = []; // {lat,lon,photos:[]}
   for (const p of allPhotos){
     let best = null, bestD = Infinity;
@@ -670,14 +678,32 @@ function buildClusters(radiusM, opts){
     c.startTime = c.photos[0].time;
     c.endTime = c.photos[c.photos.length-1].time;
     c.rep = c.photos.reduce((best,x) => (x.w*x.h > best.w*best.h || (x.w*x.h===best.w*best.h && x.size>best.size)) ? x : best, c.photos[0]);
+    for (const p of c.photos){ if (customNameByPhoto.has(p)){ c.customName = customNameByPhoto.get(p); break; } }
   });
   clusters = raw.sort((a,b) => a.startTime - b.startTime);
 
+  // build the chronological visit sequence: a place gets its own waypoint every
+  // time the photo stream actually moves away from it and comes back, so a
+  // revisit (e.g. back to the same hotel) shows up as a separate leg on the route
+  // instead of being silently absorbed into its first visit.
+  const placeOfPhoto = new Map();
+  clusters.forEach(c => c.photos.forEach(p => placeOfPhoto.set(p, c)));
+  visits = [];
+  let curVisit = null;
+  for (const p of allPhotos){
+    const place = placeOfPhoto.get(p);
+    if (curVisit && curVisit.place === place){
+      curVisit.endTime = p.time;
+    } else {
+      curVisit = { place, startTime: p.time, endTime: p.time };
+      visits.push(curVisit);
+    }
+  }
   const dayMap = new Map();
-  clusters.forEach(c => {
-    const key = dateKey(c.startTime);
+  visits.forEach(v => {
+    const key = dateKey(v.startTime);
     if (!dayMap.has(key)) dayMap.set(key, dayMap.size + 1);
-    c.day = dayMap.get(key);
+    v.day = dayMap.get(key);
   });
 
   $('statPlaces').textContent = clusters.length;
@@ -752,8 +778,7 @@ function geocodeClusters(){
 function updateClusterLabel(idx){
   const c = clusters[idx];
   if (!c) return;
-  const nameEl = document.querySelector(`#placelist .place[data-idx="${idx}"] .name`);
-  if (nameEl) nameEl.textContent = placeLabel(c);
+  document.querySelectorAll(`#placelist .place[data-idx="${idx}"] .name`).forEach(el => { el.textContent = placeLabel(c); });
   if (activeCluster === idx){
     $('dpTitle').textContent = placeLabel(c);
   }
@@ -810,27 +835,29 @@ function renderPlaceList(){
   const list = $('placelist');
   list.innerHTML = '';
   let lastDay = null;
-  clusters.forEach((c, i) => {
-    if (c.day !== lastDay){
-      lastDay = c.day;
+  visits.forEach((v, vi) => {
+    const c = v.place;
+    const placeIdx = clusters.indexOf(c);
+    if (v.day !== lastDay){
+      lastDay = v.day;
       const header = document.createElement('div');
       header.className = 'day-header';
-      header.innerHTML = `<span class="day-tag">Day ${c.day}</span><span>${fmtDateShort(c.startTime)}</span>`;
+      header.innerHTML = `<span class="day-tag">Day ${v.day}</span><span>${fmtDateShort(v.startTime)}</span>`;
       list.appendChild(header);
     }
     const row = document.createElement('div');
     row.className = 'place';
-    row.dataset.idx = i;
+    row.dataset.idx = placeIdx;
     row.innerHTML = `
-      <div class="idx">${i+1}</div>
+      <div class="idx">${vi+1}</div>
       <div class="thumb" style="background-image:url(${c.rep.url})">
         ${c.photos.length>1 ? `<div class="badge">${c.photos.length}</div>` : ''}
       </div>
       <div class="meta">
         <div class="name">${placeLabel(c)}</div>
-        <div class="time">${fmtDateShort(c.startTime)}${c.endTime>c.startTime ? ' ~ '+fmtDateShort(c.endTime):''}</div>
+        <div class="time">${fmtDateShort(v.startTime)}${v.endTime>v.startTime ? ' ~ '+fmtDateShort(v.endTime):''}</div>
       </div>`;
-    row.addEventListener('click', () => selectCluster(i, true));
+    row.addEventListener('click', () => selectCluster(placeIdx, true));
     list.appendChild(row);
   });
 }
@@ -838,11 +865,11 @@ function placeLabel(c){
   const name = c.customName || c.placeName || `장소 ${clusters.indexOf(c)+1}`;
   return `${name} · 사진 ${c.photos.length}장`;
 }
-function dayPlaceLabel(c){ return `Day ${c.day} · ${placeLabel(c)}`; }
+function dayPlaceLabel(v){ return `Day ${v.day} · ${placeLabel(v.place)}`; }
 
 function renderRoute(){
   if (!map.getSource('route-full')) return;
-  const coords = clusters.map(c => [c.lon, c.lat]);
+  const coords = visits.map(v => [v.place.lon, v.place.lat]);
   map.getSource('route-full').setData({ type:'Feature', geometry:{type:'LineString', coordinates: coords.length>1?coords:[]}, properties:{} });
 }
 
@@ -869,8 +896,10 @@ function selectCluster(i, fly){
   const c = clusters[i];
   if (fly) map.flyTo({ center:[c.lon,c.lat], zoom: Math.max(map.getZoom(),14) });
 
+  const placeVisits = visits.filter(v => v.place === c);
+  const visitTag = placeVisits.length > 1 ? `${placeVisits.length}번 방문 · ` : '';
   $('dpTitle').textContent = placeLabel(c);
-  $('dpSub').textContent = `Day ${c.day} · ${fmtDateTime(c.startTime)}${c.endTime>c.startTime ? ' ~ '+fmtDateTime(c.endTime) : ''} · 위도 ${c.lat.toFixed(5)}, 경도 ${c.lon.toFixed(5)}`;
+  $('dpSub').textContent = `${visitTag}${fmtDateTime(c.startTime)}${c.endTime>c.startTime ? ' ~ '+fmtDateTime(c.endTime) : ''} · 위도 ${c.lat.toFixed(5)}, 경도 ${c.lon.toFixed(5)}`;
   const grid = $('dpGrid'); grid.innerHTML = '';
   c.photos.forEach((p, pi) => {
     const div = document.createElement('div');
@@ -913,8 +942,9 @@ $('dpEdit').addEventListener('click', () => {
 /* ============ Delete a photo ============ */
 function deletePhoto(photo, cluster){
   URL.revokeObjectURL(photo.url);
+  // any other photo still at this place, used to relocate it after the rebuild below
+  const sibling = cluster.photos.find(p => p !== photo);
   allPhotos = allPhotos.filter(p => p !== photo);
-  cluster.photos = cluster.photos.filter(p => p !== photo);
 
   $('statTotal').textContent = Math.max(0, Number($('statTotal').textContent) - 1);
   $('statGeo').textContent = allPhotos.length;
@@ -928,26 +958,17 @@ function deletePhoto(photo, cluster){
     $('empty').style.display = 'block';
     return;
   }
-  if (cluster.photos.length === 0){
+
+  // a full rebuild keeps the visit sequence (and everything derived from it) correct;
+  // buildClusters() carries the place's customName over automatically via photo identity
+  buildClusters(SCALE_PRESETS[travelScale], { fit:false });
+
+  if (sibling){
+    const idx = clusters.findIndex(c => c.photos.includes(sibling));
+    if (idx !== -1) selectCluster(idx, false);
+  } else {
     closeDetail();
-    buildClusters(SCALE_PRESETS[travelScale], { fit:false });
-    return;
   }
-
-  cluster.photos.sort((a,b)=>a.time-b.time);
-  cluster.startTime = cluster.photos[0].time;
-  cluster.endTime = cluster.photos[cluster.photos.length-1].time;
-  cluster.rep = cluster.photos.reduce((best,x) => (x.w*x.h > best.w*best.h || (x.w*x.h===best.w*best.h && x.size>best.size)) ? x : best, cluster.photos[0]);
-
-  const first = allPhotos[0].time, last = allPhotos[allPhotos.length-1].time;
-  $('statRange').textContent = fmtDateShort(first) + ' ~ ' + fmtDateShort(last);
-
-  renderPlaceList();
-  renderMarkers();
-  renderRoute();
-  computeSegments();
-  const idx = clusters.indexOf(cluster);
-  if (idx !== -1) selectCluster(idx, false);
 }
 
 /* ============ Lightbox ============ */
@@ -990,20 +1011,20 @@ document.addEventListener('keydown', e => {
 const MIN_SEG_MS = 700, MAX_SEG_MS = 4200;
 
 function computeSegments(){
-  if (clusters.length < 2){
+  if (visits.length < 2){
     segDurations = []; segZoom = []; animTotal = 0;
     $('timeline').classList.remove('show');
     return false;
   }
   $('timeline').classList.add('show');
   const gaps = [];
-  for (let i=1;i<clusters.length;i++) gaps.push(Math.max(1, clusters[i].startTime - clusters[i-1].startTime));
+  for (let i=1;i<visits.length;i++) gaps.push(Math.max(1, visits[i].startTime - visits[i-1].startTime));
   const maxGap = Math.max(...gaps);
   segDurations = gaps.map(g => MIN_SEG_MS + (g/maxGap) * (MAX_SEG_MS - MIN_SEG_MS));
   animTotal = segDurations.reduce((a,b)=>a+b,0);
   segZoom = [];
-  for (let i=0;i<clusters.length-1;i++){
-    const km = haversine(clusters[i].lat, clusters[i].lon, clusters[i+1].lat, clusters[i+1].lon) / 1000;
+  for (let i=0;i<visits.length-1;i++){
+    const km = haversine(visits[i].place.lat, visits[i].place.lon, visits[i+1].place.lat, visits[i+1].place.lon) / 1000;
     segZoom.push(zoomForDistance(km));
   }
   return true;
@@ -1013,6 +1034,7 @@ function setupAnimation(){
   stopAnim();
   animElapsed = 0;
   camZoom = null;
+  lastCamUpdateAt = 0;
   if (map.getSource('route-progress')) map.getSource('route-progress').setData(emptyLine());
   if (!computeSegments()){
     if (movingMarker){ movingMarker.remove(); movingMarker = null; }
@@ -1021,17 +1043,23 @@ function setupAnimation(){
 
   if (movingMarker) movingMarker.remove();
   const el = document.createElement('div');
-  movingMarker = new maplibregl.Marker({ element: el }).setLngLat([clusters[0].lon, clusters[0].lat]).addTo(map);
+  movingMarker = new maplibregl.Marker({ element: el }).setLngLat([visits[0].place.lon, visits[0].place.lat]).addTo(map);
   applyMarkerIcon();
 
-  $('tlNow').textContent = fmtDateShort(clusters[0].startTime);
-  $('tlEnd').textContent = fmtDateShort(clusters[clusters.length-1].startTime);
-  $('tlPlace').textContent = dayPlaceLabel(clusters[0]);
+  $('tlNow').textContent = fmtDateShort(visits[0].startTime);
+  $('tlEnd').textContent = fmtDateShort(visits[visits.length-1].startTime);
+  $('tlPlace').textContent = dayPlaceLabel(visits[0]);
   $('tlRange').value = 0;
   renderFrame(0);
 }
 
-function renderFrame(elapsed){
+// during autoplay, camera panning/zooming is throttled+eased instead of jumping every
+// frame — constantly re-centering + re-zooming raster tiles every frame is what caused
+// the visible stutter/tearing while the route was animating.
+const CAM_UPDATE_MS = 120;
+
+function renderFrame(elapsed, opts){
+  const instant = !opts || opts.instant !== false;
   elapsed = Math.max(0, Math.min(animTotal, elapsed));
   let acc = 0, segIdx = 0, segT = 0;
   for (let i=0;i<segDurations.length;i++){
@@ -1041,7 +1069,7 @@ function renderFrame(elapsed){
     }
     acc += segDurations[i];
   }
-  const a = clusters[segIdx], b = clusters[segIdx+1] || a;
+  const a = visits[segIdx].place, b = (visits[segIdx+1] || visits[segIdx]).place;
   const lat = a.lat + (b.lat-a.lat)*segT;
   const lon = a.lon + (b.lon-a.lon)*segT;
   if (movingMarker) movingMarker.setLngLat([lon,lat]);
@@ -1049,18 +1077,27 @@ function renderFrame(elapsed){
   const targetZoom = segZoom[segIdx] ?? segZoom[segZoom.length-1] ?? map.getZoom();
   if (camZoom == null) camZoom = targetZoom;
   camZoom += (targetZoom - camZoom) * 0.08;
-  map.jumpTo({ center:[lon,lat], zoom: camZoom });
+  if (instant){
+    map.jumpTo({ center:[lon,lat], zoom: camZoom });
+  } else {
+    const now = performance.now();
+    if (now - lastCamUpdateAt >= CAM_UPDATE_MS || elapsed === 0 || elapsed >= animTotal){
+      lastCamUpdateAt = now;
+      map.easeTo({ center:[lon,lat], zoom: camZoom, duration: CAM_UPDATE_MS, easing: t => t });
+    }
+  }
 
-  const traveled = clusters.slice(0, segIdx+1).map(c=>[c.lon,c.lat]);
+  const traveled = visits.slice(0, segIdx+1).map(v=>[v.place.lon,v.place.lat]);
   traveled.push([lon,lat]);
   if (map.getSource('route-progress')) {
     map.getSource('route-progress').setData({ type:'Feature', geometry:{type:'LineString',coordinates:traveled}, properties:{} });
   }
 
-  const nearIdx = segT < 0.5 ? segIdx : Math.min(segIdx+1, clusters.length-1);
-  markers.forEach((m,idx) => m._el.classList.toggle('active', idx===nearIdx));
-  $('tlPlace').textContent = dayPlaceLabel(clusters[nearIdx]);
-  $('tlNow').textContent = fmtDateShort(new Date(a.startTime.getTime() + (b.startTime - a.startTime)*segT));
+  const nearVisit = segT < 0.5 ? visits[segIdx] : (visits[segIdx+1] || visits[segIdx]);
+  const nearPlaceIdx = clusters.indexOf(nearVisit.place);
+  markers.forEach((m,idx) => m._el.classList.toggle('active', idx===nearPlaceIdx));
+  $('tlPlace').textContent = dayPlaceLabel(nearVisit);
+  $('tlNow').textContent = fmtDateShort(new Date(a===b ? a.startTime.getTime() : visits[segIdx].startTime.getTime() + (visits[segIdx+1].startTime - visits[segIdx].startTime)*segT));
   $('tlRange').value = Math.round(elapsed/animTotal*1000);
 }
 
@@ -1070,14 +1107,14 @@ function stepAnim(ts){
   const dt = (ts - lastFrameTs) * Number($('tlSpeed').value);
   lastFrameTs = ts;
   animElapsed += dt;
-  if (animElapsed >= animTotal){ animElapsed = animTotal; renderFrame(animElapsed); pauseAnim(); return; }
-  renderFrame(animElapsed);
+  if (animElapsed >= animTotal){ animElapsed = animTotal; renderFrame(animElapsed, {instant:true}); pauseAnim(); return; }
+  renderFrame(animElapsed, {instant:false});
   rafId = requestAnimationFrame(stepAnim);
 }
 function playAnim(){
-  if (clusters.length < 2) return;
+  if (visits.length < 2) return;
   if (animElapsed >= animTotal) animElapsed = 0;
-  isPlaying = true; lastFrameTs = null;
+  isPlaying = true; lastFrameTs = null; lastCamUpdateAt = 0;
   $('btnPlay').textContent = '⏸';
   rafId = requestAnimationFrame(stepAnim);
 }
