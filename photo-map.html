@@ -56,6 +56,15 @@
     color:var(--sub);margin-bottom:6px;}
   .ctrl-row input[type=range]{width:150px;accent-color:var(--accent);}
 
+  .icon-picker{display:flex;gap:6px;flex-wrap:wrap;}
+  .icon-picker .icon-btn{width:36px;height:36px;border-radius:9px;background:var(--panel2);
+    border:1px solid var(--border);font-size:16px;display:flex;align-items:center;justify-content:center;
+    padding:0;color:var(--text);}
+  .icon-picker .icon-btn:hover{border-color:var(--accent);}
+  .icon-picker .icon-btn.active{border-color:var(--accent);background:rgba(77,159,255,.15);}
+  .icon-picker .dot-preview{width:12px;height:12px;border-radius:50%;background:var(--good);
+    box-shadow:0 0 0 3px rgba(62,207,142,.3);}
+
   #progress{padding:0 16px 12px;font-size:12px;color:var(--sub);display:none;}
   #progress .bar{height:4px;background:var(--panel2);border-radius:2px;overflow:hidden;margin-top:6px;}
   #progress .bar i{display:block;height:100%;width:0%;background:var(--accent);transition:.15s;}
@@ -73,6 +82,13 @@
   .place .meta{min-width:0;}
   .place .name{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .place .time{font-size:11px;color:var(--sub);font-variant-numeric:tabular-nums;}
+
+  .day-header{position:sticky;top:0;z-index:1;display:flex;align-items:baseline;gap:8px;
+    padding:10px 8px 6px;background:var(--panel);font-size:11px;color:var(--sub);
+    font-variant-numeric:tabular-nums;}
+  .day-header .day-tag{font-family:var(--font-display);font-size:13px;font-weight:600;color:var(--text);
+    letter-spacing:.2px;}
+  .day-header::after{content:"";position:absolute;left:8px;right:8px;bottom:1px;border-bottom:1px solid var(--border);}
 
   #empty{padding:24px 16px;color:var(--sub);font-size:13px;line-height:1.6;text-align:center;}
 
@@ -107,6 +123,10 @@
     border:2px solid var(--panel);}
   .moving-marker{width:16px;height:16px;border-radius:50%;background:var(--good);
     box-shadow:0 0 0 4px rgba(62,207,142,.3),0 0 12px rgba(62,207,142,.8);border:2px solid #fff;}
+  .moving-marker.icon{width:36px;height:36px;border-radius:50%;background:rgba(18,21,28,.6);
+    border:2px solid rgba(255,255,255,.35);box-shadow:0 2px 12px rgba(0,0,0,.55);
+    display:flex;align-items:center;justify-content:center;font-size:19px;line-height:1;
+    background-clip:padding-box;}
 
   /* timeline */
   #timeline{position:absolute;left:12px;right:12px;bottom:12px;background:rgba(26,30,41,.96);
@@ -191,6 +211,18 @@
         <span id="radiusVal">150m</span>
       </div>
       <input type="range" id="radiusSlider" min="20" max="1000" step="10" value="150" style="width:100%;">
+
+      <div class="ctrl-row" style="margin-top:10px;">
+        <span>이동 마커 모양</span>
+      </div>
+      <div id="iconPicker" class="icon-picker">
+        <button class="icon-btn" data-icon="dot" title="점"><span class="dot-preview"></span></button>
+        <button class="icon-btn" data-icon="smile" title="스마일">😊</button>
+        <button class="icon-btn" data-icon="person" title="사람">🚶</button>
+        <button class="icon-btn" data-icon="car" title="자동차">🚗</button>
+        <button class="icon-btn" data-icon="plane" title="비행기">✈️</button>
+        <button class="icon-btn" data-icon="boat" title="배">⛵</button>
+      </div>
     </div>
 
     <div id="empty">
@@ -257,6 +289,8 @@ let markers = [];
 let activeCluster = null;
 let map = null;
 let movingMarker = null;
+let movingIconType = 'smile';
+const MARKER_ICONS = { dot:null, smile:'😊', person:'🚶', car:'🚗', plane:'✈️', boat:'⛵' };
 let segDurations = [];     // ms per segment at speed=1
 let animElapsed = 0;       // ms
 let animTotal = 0;
@@ -561,6 +595,23 @@ $('radiusSlider').addEventListener('change', e => {
   if (allPhotos.length) buildClusters(Number(e.target.value));
 });
 
+/* ============ Moving marker icon picker ============ */
+document.querySelectorAll('#iconPicker .icon-btn').forEach(btn => {
+  btn.classList.toggle('active', btn.dataset.icon === movingIconType);
+  btn.addEventListener('click', () => {
+    movingIconType = btn.dataset.icon;
+    document.querySelectorAll('#iconPicker .icon-btn').forEach(b => b.classList.toggle('active', b === btn));
+    applyMarkerIcon();
+  });
+});
+function applyMarkerIcon(){
+  if (!movingMarker) return;
+  const el = movingMarker.getElement();
+  const iconChar = MARKER_ICONS[movingIconType];
+  if (iconChar){ el.className = 'moving-marker icon'; el.textContent = iconChar; }
+  else { el.className = 'moving-marker'; el.textContent = ''; }
+}
+
 /* ============ Rendering: markers, list, route ============ */
 function renderMarkers(){
   markers.forEach(m => m.remove());
@@ -583,7 +634,15 @@ function renderMarkers(){
 function renderPlaceList(){
   const list = $('placelist');
   list.innerHTML = '';
+  let lastDay = null;
   clusters.forEach((c, i) => {
+    if (c.day !== lastDay){
+      lastDay = c.day;
+      const header = document.createElement('div');
+      header.className = 'day-header';
+      header.innerHTML = `<span class="day-tag">Day ${c.day}</span><span>${fmtDateShort(c.startTime)}</span>`;
+      list.appendChild(header);
+    }
     const row = document.createElement('div');
     row.className = 'place';
     row.dataset.idx = i;
@@ -604,6 +663,7 @@ function placeLabel(c){
   const name = c.placeName || `장소 ${clusters.indexOf(c)+1}`;
   return `${name} · 사진 ${c.photos.length}장`;
 }
+function dayPlaceLabel(c){ return `Day ${c.day} · ${placeLabel(c)}`; }
 
 function renderRoute(){
   if (!map.getSource('route-full')) return;
@@ -632,7 +692,7 @@ function selectCluster(i, fly){
   if (fly) map.flyTo({ center:[c.lon,c.lat], zoom: Math.max(map.getZoom(),14) });
 
   $('dpTitle').textContent = placeLabel(c);
-  $('dpSub').textContent = `${fmtDateTime(c.startTime)}${c.endTime>c.startTime ? ' ~ '+fmtDateTime(c.endTime) : ''} · 위도 ${c.lat.toFixed(5)}, 경도 ${c.lon.toFixed(5)}`;
+  $('dpSub').textContent = `Day ${c.day} · ${fmtDateTime(c.startTime)}${c.endTime>c.startTime ? ' ~ '+fmtDateTime(c.endTime) : ''} · 위도 ${c.lat.toFixed(5)}, 경도 ${c.lon.toFixed(5)}`;
   const grid = $('dpGrid'); grid.innerHTML = '';
   c.photos.forEach((p, pi) => {
     const div = document.createElement('div');
@@ -693,12 +753,12 @@ function setupAnimation(){
 
   if (movingMarker) movingMarker.remove();
   const el = document.createElement('div');
-  el.className = 'moving-marker';
   movingMarker = new maplibregl.Marker({ element: el }).setLngLat([clusters[0].lon, clusters[0].lat]).addTo(map);
+  applyMarkerIcon();
 
   $('tlNow').textContent = fmtDateShort(clusters[0].startTime);
   $('tlEnd').textContent = fmtDateShort(clusters[clusters.length-1].startTime);
-  $('tlPlace').textContent = placeLabel(clusters[0]);
+  $('tlPlace').textContent = dayPlaceLabel(clusters[0]);
   $('tlRange').value = 0;
   renderFrame(0);
 }
@@ -726,7 +786,7 @@ function renderFrame(elapsed){
 
   const nearIdx = segT < 0.5 ? segIdx : Math.min(segIdx+1, clusters.length-1);
   markers.forEach((m,idx) => m._el.classList.toggle('active', idx===nearIdx));
-  $('tlPlace').textContent = placeLabel(clusters[nearIdx]);
+  $('tlPlace').textContent = dayPlaceLabel(clusters[nearIdx]);
   $('tlNow').textContent = fmtDateShort(new Date(a.startTime.getTime() + (b.startTime - a.startTime)*segT));
   $('tlRange').value = Math.round(elapsed/animTotal*1000);
 }
