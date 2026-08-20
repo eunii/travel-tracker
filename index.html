@@ -414,6 +414,69 @@ $('sidebarToggle').addEventListener('click', openSidebar);
 $('sidebarClose').addEventListener('click', closeSidebar);
 $('backdrop').addEventListener('click', closeSidebar);
 const isMobile = () => window.innerWidth <= 820;
+
+/* drag the whole sidebar open/closed: swipe its header to close, swipe in from the
+   left screen edge to open. Direction-locked so it never fights list scrolling. */
+(function setupSidebarDrag(){
+  const sidebar = $('sidebar'), backdrop = $('backdrop'), handle = sidebar.querySelector('h1');
+  const EDGE = 24;
+  let dragging = false, locked = null, startX = 0, startY = 0, baseX = 0, sidebarW = 0;
+
+  function begin(x, y, fromOpen){
+    sidebarW = sidebar.offsetWidth;
+    baseX = fromOpen ? 0 : -sidebarW;
+    startX = x; startY = y;
+    dragging = true; locked = null;
+    sidebar.style.transition = 'none';
+    backdrop.style.display = 'block';
+  }
+  function move(x, y){
+    if (!dragging) return false;
+    const dx = x - startX, dy = y - startY;
+    if (locked === null){
+      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return false;
+      locked = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+      if (locked === 'y'){ dragging = false; sidebar.style.transition = ''; backdrop.style.display = ''; return false; }
+    }
+    const pos = Math.max(-sidebarW, Math.min(0, baseX + dx));
+    sidebar.style.transform = `translateX(${pos}px)`;
+    backdrop.style.opacity = String(1 + pos / sidebarW);
+    return true;
+  }
+  function end(x){
+    if (!dragging) return;
+    dragging = false;
+    const dx = x - startX;
+    const pos = Math.max(-sidebarW, Math.min(0, baseX + dx));
+    sidebar.style.transition = '';
+    sidebar.style.transform = '';
+    backdrop.style.opacity = '';
+    backdrop.style.display = '';
+    if (pos > -sidebarW * 0.5) openSidebar(); else closeSidebar();
+  }
+
+  handle.addEventListener('touchstart', e => {
+    if (!isMobile() || !sidebar.classList.contains('open')) return;
+    begin(e.touches[0].clientX, e.touches[0].clientY, true);
+  }, {passive:true});
+  document.addEventListener('touchstart', e => {
+    if (!isMobile() || sidebar.classList.contains('open')) return;
+    const t = e.touches[0];
+    if (t.clientX <= EDGE) begin(t.clientX, t.clientY, false);
+  }, {passive:true});
+  document.addEventListener('touchmove', e => {
+    if (!dragging) return;
+    const t = e.touches[0];
+    if (move(t.clientX, t.clientY)) e.preventDefault();
+  }, {passive:false});
+  document.addEventListener('touchend', e => { if (dragging) end(e.changedTouches[0].clientX); });
+  document.addEventListener('touchcancel', () => {
+    if (!dragging) return;
+    dragging = false;
+    sidebar.style.transition = ''; sidebar.style.transform = '';
+    backdrop.style.opacity = ''; backdrop.style.display = '';
+  });
+})();
 if (/iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream){
   $('iosHint').style.display = 'block';
 }
@@ -530,7 +593,11 @@ async function handleFileList(files){
   }
 
   clusterPx = Number($('radiusSlider').value);
-  buildClusters(currentRadiusMeters());
+  // the map is still at its default world-view zoom here, so a pixel-based radius
+  // would be huge (100km+) and merge unrelated places; use a fixed distance for
+  // this first pass, then let fitToClusters()'s resulting zoomend re-cluster
+  // properly once the map is actually zoomed to the photos.
+  buildClusters(150);
 }
 
 function resetState(){
