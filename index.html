@@ -234,6 +234,37 @@
     border-top-color:rgba(18,21,28,.88);}
   @keyframes arrivalBubbleIn{from{opacity:0;margin-bottom:-6px;}to{opacity:1;margin-bottom:0;}}
 
+  .photo-marker .pin.pop-in{animation:pinPop .55s cubic-bezier(.45,0,.2,1) forwards;}
+  @keyframes pinPop{0%{transform:scale(.7)}60%{transform:scale(1.05)}100%{transform:scale(1)}}
+
+  #spotCard{position:absolute;left:50%;bottom:calc(100px + env(safe-area-inset-bottom));
+    transform:translateX(-50%) translateY(16px) scale(.97);z-index:11;min-width:200px;max-width:min(320px,88vw);
+    padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.94);color:#1a1a1a;
+    box-shadow:0 8px 28px rgba(0,0,0,.22);pointer-events:none;opacity:0;visibility:hidden;
+    transition:opacity .32s ease, transform .32s cubic-bezier(.45,0,.2,1), visibility .32s;}
+  #spotCard.show{opacity:1;visibility:visible;transform:translateX(-50%) translateY(0) scale(1);}
+  #spotCard .sc-order{font-size:11px;font-weight:700;letter-spacing:.06em;color:#5a6b5e;margin-bottom:4px;}
+  #spotCard .sc-name{font-family:var(--font-display);font-size:17px;font-weight:600;line-height:1.25;}
+  #spotCard .sc-meta{margin-top:6px;font-size:12px;color:#667085;display:flex;gap:10px;flex-wrap:wrap;}
+
+  #dayBanner{position:absolute;top:calc(18px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);
+    z-index:11;padding:8px 14px;border-radius:999px;background:rgba(18,21,28,.88);color:#fff;
+    font-size:13px;font-weight:600;letter-spacing:.04em;opacity:0;visibility:hidden;pointer-events:none;
+    transition:opacity .35s ease, visibility .35s;}
+  #dayBanner.show{opacity:1;visibility:visible;}
+
+  #endSummary{position:absolute;inset:0;z-index:13;display:flex;align-items:flex-end;justify-content:center;
+    padding:24px;padding-bottom:calc(110px + env(safe-area-inset-bottom));pointer-events:none;
+    opacity:0;visibility:hidden;transition:opacity .45s ease, visibility .45s;
+    background:linear-gradient(transparent 40%, rgba(0,0,0,.35));}
+  #endSummary.show{opacity:1;visibility:visible;}
+  #endSummary .es-card{width:min(420px,94%);background:rgba(255,255,255,.95);color:#1a1a1a;
+    border-radius:16px;padding:16px 18px;box-shadow:0 10px 32px rgba(0,0,0,.25);}
+  #endSummary .es-row{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;text-align:center;}
+  #endSummary .es-n{font-size:18px;font-weight:700;font-variant-numeric:tabular-nums;}
+  #endSummary .es-l{font-size:10px;color:#667085;letter-spacing:.04em;margin-top:2px;}
+  #endSummary .es-note{margin-top:10px;font-size:11px;color:#667085;text-align:center;line-height:1.4;}
+
   /* Arrival slideshow overlay (popup mode) */
   #arrivalSlideshow{position:absolute;inset:0;z-index:12;display:flex;align-items:center;
     justify-content:center;pointer-events:none;padding:calc(56px + env(safe-area-inset-top)) 24px
@@ -427,6 +458,27 @@
       </div>
     </div>
 
+    <div id="spotCard" aria-hidden="true">
+      <div class="sc-order" id="scOrder">01 / 01</div>
+      <div class="sc-name" id="scName">장소</div>
+      <div class="sc-meta">
+        <span id="scTime">-</span>
+        <span id="scPhotos">사진 0장</span>
+      </div>
+    </div>
+    <div id="dayBanner" aria-hidden="true"></div>
+    <div id="endSummary" aria-hidden="true">
+      <div class="es-card">
+        <div class="es-row">
+          <div><div class="es-n" id="esSpots">0</div><div class="es-l">SPOTS</div></div>
+          <div><div class="es-n" id="esPhotos">0</div><div class="es-l">PHOTOS</div></div>
+          <div><div class="es-n" id="esDays">DAY TRIP</div><div class="es-l">DAYS</div></div>
+          <div><div class="es-n" id="esKm">0</div><div class="es-l">KM</div></div>
+        </div>
+        <div class="es-note">사진 촬영 위치 간 직선거리 기준</div>
+      </div>
+    </div>
+
     <div id="detailpanel">
       <div class="dp-head">
         <div>
@@ -517,44 +569,59 @@ function iconSvgHtml(name, size){
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`;
 }
 let segDurations = [];     // ms per travel hop at speed=1
-let segDwells = [];        // ms per place dwell (may vary in popup mode)
-let segZoom = [];          // frozen A→B fit zoom per hop
-let segCenter = [];        // frozen A→B bounds center per hop {lon,lat}
-let camZoom = null;        // current eased camera zoom while animating
-let camLon = null;         // eased camera center
+let segDwells = [];        // ms per place dwell (arrival hold)
+let segKm = [];            // hop distance km
+let segLong = [];          // long-hop flag for mid zoom-out
+let segNear = [];          // near hop: no arrival zoom boost
+let baseZoom = 10;         // trip-wide cruise zoom
+let arrivalZoom = 11;      // base * 1.08
+let overviewZoom = 6;
+let overviewLon = 127.5;
+let overviewLat = 36.5;
+let camZoom = null;
+let camLon = null;
 let camLat = null;
-let camFollow = true;      // auto camera follow during playback; off when user pans/zooms
-let animElapsed = 0;       // ms
+let camFollow = true;
+let animElapsed = 0;
 let animTotal = 0;
-let arrivalBubbleLabel = null; // place title during dwell (also used by export)
-let arrivalSlideState = null;  // { title, url, index, total } for export overlay
+let arrivalBubbleLabel = null;
+let arrivalSlideState = null;
 let lastCamPhaseKey = null;
-let lastSlideKey = null;       // clusterIdx:photoIdx to avoid redundant DOM churn
-let camBoostLeftMs = 0;        // after phase change, briefly speed up zoom ease
+let lastSlideKey = null;
+let lastPopPinIdx = null;
 let isPlaying = false;
 let isRecording = false;
 let lastFrameTs = null;
 let rafId = null;
 let lightboxPhotos = [];
 let lightboxIndex = 0;
-let arrivalMode = 'move';     // 'move' | 'popup'
+let arrivalMode = 'move';
 let playIntroTimer = null;
+let cineMode = 'idle';      // idle | intro | main | outro
+let cineStage = 0;
+let cineElapsed = 0;
+let spotCardState = null;  // for export
+let dayBannerText = null;
 
 const CAM_MIN_ZOOM = 3;
 const CAM_MAX_ZOOM = 15;
-const CAM_ZOOM_OUT_RATE = 4.5;    // levels/sec — reach hop fit within dwell
-const CAM_ZOOM_IN_RATE = 5.5;
-const CAM_ZOOM_RATE_K = 0.55;     // scale rate with remaining |dz|
-const CAM_ZOOM_RATE_CAP = 4;      // max multiplier on base zoom rate
-const CAM_CENTER_BLEND = 0.35;    // snappier marker follow
-const CAM_ZOOM_DEADBAND = 0.08;
-const CAM_BOOST_MS = 400;         // short fast ease after hop/dwell change
-const CAM_BOOST_MULT = 2;
-const DWELL_MS = 1400;
-const SLIDE_MS = 650;             // per-photo dwell slice in popup mode
-const LAST_DWELL_ZOOM = 14;
-const OVERVIEW_HOLD_MS = 500;     // record intro only: hold whole-trip view
+const CAM_ZOOM_OUT_RATE = 1.6;
+const CAM_ZOOM_IN_RATE = 1.8;
+const CAM_CENTER_BLEND = 0.18;
+const CAM_ZOOM_DEADBAND = 0.04;
+const DWELL_MS = 700;              // arrival hold ~0.5–0.9s
+const SLIDE_MS = 650;
 const PHOTO_SLIDE_MAX = 6;
+const INTRO_OVERVIEW_MS = 800;
+const INTRO_ZOOM_MS = 1000;
+const INTRO_HOLD_MS = 550;
+const OUTRO_HOLD_MS = 650;
+const OUTRO_ZOOM_MS = 1250;
+const ARRIVAL_ZOOM_FACTOR = 1.08;
+const NEAR_HOP_KM = 2;
+const LONG_HOP_KM = 80;
+const LONG_HOP_OUT = 0.85;         // mid zoom-out delta levels
+const LEAD_FRAC = 0.10;            // screen fraction toward travel dir
 const LS_ARRIVAL_MODE = 'travel-tracker-arrival-mode';
 const LS_PHOTO_FAN_LEGACY = 'travel-tracker-photo-fan';
 
@@ -672,7 +739,7 @@ function zoomToFitPoints(a, b, padding){
   return Math.max(CAM_MIN_ZOOM, Math.min(CAM_MAX_ZOOM, z));
 }
 
-/** Zoom + center that fit both hop endpoints (A and B stay on screen). */
+/** Zoom + center that fit both hop endpoints (kept for misc; playback uses baseZoom). */
 function hopFitCamera(a, b){
   const pad = playPadding();
   const mid = { lon: (a.lon + b.lon) / 2, lat: (a.lat + b.lat) / 2 };
@@ -696,22 +763,105 @@ function hopFitCamera(a, b){
   return { zoom: z, lon, lat };
 }
 
-/** Jump camera to first place + first hop zoom (preview start — follow traveler, not bounds midpoint). */
-function jumpToFirstHop(){
+function captureOverviewCamera(){
+  const padding = mapPadding();
   if (!clusters.length) return;
-  const z = segZoom[0] != null ? segZoom[0] : LAST_DWELL_ZOOM;
+  if (clusters.length === 1){
+    overviewZoom = 13;
+    overviewLon = clusters[0].lon;
+    overviewLat = clusters[0].lat;
+    return;
+  }
+  const b = new maplibregl.LngLatBounds();
+  clusters.forEach(c => b.extend([c.lon, c.lat]));
+  try {
+    const cam = map.cameraForBounds(b, { padding, maxZoom: CAM_MAX_ZOOM });
+    if (cam){
+      overviewZoom = cam.zoom;
+      overviewLon = cam.center.lng;
+      overviewLat = cam.center.lat;
+    }
+  } catch (e) { /* keep previous */ }
+}
+
+function computeTripBaseZoom(){
+  captureOverviewCamera();
+  // Cruise a bit tighter than full-trip overview so travel feels intimate
+  baseZoom = Math.min(CAM_MAX_ZOOM, Math.max(CAM_MIN_ZOOM, overviewZoom + 1.35));
+  arrivalZoom = Math.min(CAM_MAX_ZOOM, baseZoom * ARRIVAL_ZOOM_FACTOR);
+}
+
+function hopDurationMs(km){
+  const sec = Math.max(1.2, Math.min(2.5, 1.2 + Math.sqrt(Math.max(0, km)) * 0.35));
+  return sec * 1000;
+}
+
+/** cubic-bezier(0.45, 0, 0.2, 1) */
+function easeTravel(t){
+  t = Math.max(0, Math.min(1, t));
+  const x1 = 0.45, y1 = 0, x2 = 0.2, y2 = 1;
+  let x = t;
+  for (let i = 0; i < 6; i++){
+    const u = 1 - x;
+    const cx = 3 * u * u * x1 + 6 * u * x * x2 + 3 * x * x;
+    if (Math.abs(cx) < 1e-6) break;
+    const bx = 3 * u * u * x * x1 + 3 * u * x * x * x2 + x * x * x - t;
+    x -= bx / cx;
+  }
+  x = Math.max(0, Math.min(1, x));
+  const u = 1 - x;
+  return 3 * u * u * x * y1 + 3 * u * x * x * y2 + x * x * x;
+}
+
+function bearingRad(a, b){
+  const φ1 = a.lat * Math.PI / 180, φ2 = b.lat * Math.PI / 180;
+  const Δλ = (b.lon - a.lon) * Math.PI / 180;
+  const y = Math.sin(Δλ) * Math.cos(φ2);
+  const x = Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
+  return Math.atan2(y, x);
+}
+
+/** Shift camera center along travel so the traveler sits ~40–45% opposite the heading. */
+function leadRoomCenter(lon, lat, from, to, leadAmt){
+  if (!map || leadAmt <= 0.01 || !from || !to) return { lon, lat };
+  const br = bearingRad(from, to);
+  const w = map.getContainer().clientWidth;
+  const h = map.getContainer().clientHeight;
+  const px = Math.min(w, h) * LEAD_FRAC * leadAmt;
+  const p = map.project([lon, lat]);
+  const ox = Math.sin(br) * px;
+  const oy = -Math.cos(br) * px;
+  const ll = map.unproject([p.x + ox, p.y + oy]);
+  return { lon: ll.lng, lat: ll.lat };
+}
+
+function jumpToFirstSpot(){
+  if (!clusters.length) return;
   camLon = clusters[0].lon;
   camLat = clusters[0].lat;
-  camZoom = z;
+  camZoom = arrivalZoom || baseZoom;
   map.jumpTo({ center: [camLon, camLat], zoom: camZoom });
-  lastCamPhaseKey = null;
-  camBoostLeftMs = CAM_BOOST_MS;
 }
 
 function placeTitle(c){
   if (!c) return '';
   const idx = clusters.indexOf(c);
   return c.customName || c.placeName || `장소 ${idx >= 0 ? idx + 1 : '?'}`;
+}
+
+function tripDayLabel(){
+  if (!clusters.length) return 'DAY TRIP';
+  const days = new Set(clusters.map(c => c.day));
+  if (days.size <= 1) return 'DAY TRIP';
+  return days.size + ' DAYS';
+}
+
+function tripStraightKm(){
+  let m = 0;
+  for (let i = 0; i < clusters.length - 1; i++){
+    m += haversine(clusters[i].lat, clusters[i].lon, clusters[i + 1].lat, clusters[i + 1].lon);
+  }
+  return m / 1000;
 }
 
 function setArrivalBubble(text){
@@ -729,6 +879,79 @@ function setArrivalBubble(text){
     el.appendChild(bubble);
   }
   bubble.textContent = text;
+}
+
+function hideSpotCard(){
+  spotCardState = null;
+  const el = $('spotCard');
+  if (!el) return;
+  el.classList.remove('show');
+  el.setAttribute('aria-hidden', 'true');
+}
+
+function showSpotCard(cluster, idx){
+  if (!cluster){ hideSpotCard(); return; }
+  const el = $('spotCard');
+  if (!el) return;
+  const order = String(idx + 1).padStart(2, '0') + ' / ' + String(clusters.length).padStart(2, '0');
+  const timeStr = fmtDateTime(cluster.startTime);
+  $('scOrder').textContent = order;
+  $('scName').textContent = placeTitle(cluster);
+  $('scTime').textContent = timeStr;
+  $('scPhotos').textContent = '사진 ' + cluster.photos.length + '장';
+  spotCardState = {
+    order, name: placeTitle(cluster), time: timeStr,
+    photos: cluster.photos.length, idx
+  };
+  el.classList.add('show');
+  el.setAttribute('aria-hidden', 'false');
+}
+
+function hideDayBanner(){
+  dayBannerText = null;
+  const el = $('dayBanner');
+  if (!el) return;
+  el.classList.remove('show');
+  el.setAttribute('aria-hidden', 'true');
+}
+
+function showDayBanner(text){
+  dayBannerText = text;
+  const el = $('dayBanner');
+  if (!el) return;
+  el.textContent = text;
+  el.classList.add('show');
+  el.setAttribute('aria-hidden', 'false');
+}
+
+function hideEndSummary(){
+  const el = $('endSummary');
+  if (!el) return;
+  el.classList.remove('show');
+  el.setAttribute('aria-hidden', 'true');
+}
+
+function showEndSummary(){
+  const el = $('endSummary');
+  if (!el) return;
+  $('esSpots').textContent = String(clusters.length);
+  $('esPhotos').textContent = String(allPhotos.length || clusters.reduce((s, c) => s + c.photos.length, 0));
+  $('esDays').textContent = tripDayLabel();
+  const km = tripStraightKm();
+  $('esKm').textContent = km < 10 ? km.toFixed(1) : String(Math.round(km));
+  el.classList.add('show');
+  el.setAttribute('aria-hidden', 'false');
+}
+
+function popPinAt(idx){
+  if (idx == null || idx < 0 || !markers[idx]) return;
+  if (lastPopPinIdx === idx) return;
+  lastPopPinIdx = idx;
+  const pin = markers[idx]._el && markers[idx]._el.querySelector('.pin');
+  if (!pin) return;
+  pin.classList.remove('pop-in');
+  void pin.offsetWidth;
+  pin.classList.add('pop-in');
 }
 
 function slidePhotosForCluster(cluster){
@@ -800,7 +1023,6 @@ function syncMovingMarkerPlaying(){
 
 /**
  * Timeline: dwell0 → travel0 → dwell1 → travel1 → … → dwell(n-1)
- * @returns {{ kind:'dwell'|'travel', clusterIdx:number, segIdx:number, t:number }}
  */
 function phaseAtElapsed(elapsed){
   elapsed = Math.max(0, Math.min(animTotal || 0, elapsed));
@@ -1595,30 +1817,28 @@ document.addEventListener('keydown', e => {
   if (e.key==='ArrowRight') $('lbNext').click();
 });
 
-/* ============ Animation (동선 재생) ============ */
-// Constant visual travel speed (distance-based). Timeline speed multiplier still applies.
-const MS_PER_KM = 220;
-const MIN_SEG_MS = 500;
-const MAX_SEG_MS = 7000;
+/* ============ Animation (시네마틱 동선 재생) ============ */
 
 function computeSegments(){
   if (clusters.length < 2){
-    segDurations = []; segDwells = []; segZoom = []; segCenter = []; animTotal = 0;
+    segDurations = []; segDwells = []; segKm = []; segLong = []; segNear = []; animTotal = 0;
     $('timeline').classList.remove('show');
     return false;
   }
   $('timeline').classList.add('show');
+  computeTripBaseZoom();
   segDurations = [];
+  segKm = [];
+  segLong = [];
+  segNear = [];
   segDwells = clusters.map(c => dwellMsForCluster(c));
-  segZoom = [];
-  segCenter = [];
   for (let i = 0; i < clusters.length - 1; i++){
     const a = clusters[i], b = clusters[i + 1];
     const km = haversine(a.lat, a.lon, b.lat, b.lon) / 1000;
-    segDurations.push(Math.max(MIN_SEG_MS, Math.min(MAX_SEG_MS, km * MS_PER_KM)));
-    const fit = hopFitCamera(a, b);
-    segZoom.push(fit.zoom);
-    segCenter.push({ lon: fit.lon, lat: fit.lat });
+    segKm.push(km);
+    segNear.push(km < NEAR_HOP_KM);
+    segLong.push(km >= LONG_HOP_KM);
+    segDurations.push(hopDurationMs(km));
   }
   animTotal = segDwells.reduce((sum, d) => sum + d, 0) + segDurations.reduce((sum, d) => sum + d, 0);
   return true;
@@ -1632,10 +1852,13 @@ function setupAnimation(){
   camLat = null;
   arrivalBubbleLabel = null;
   lastCamPhaseKey = null;
-  camBoostLeftMs = 0;
+  lastPopPinIdx = null;
   hideArrivalSlideshow();
-  // defer camera to fitToClusters / playback; first frame only syncs marker + UI
+  hideSpotCard();
+  hideDayBanner();
+  hideEndSummary();
   camFollow = false;
+  cineMode = 'idle';
   if (map.getSource('route-progress')) map.getSource('route-progress').setData(emptyLine());
   if (!computeSegments()){
     if (movingMarker){ movingMarker.remove(); movingMarker = null; }
@@ -1655,7 +1878,6 @@ function setupAnimation(){
   renderFrame(0);
 }
 
-/** Interpolate on the same Mercator straight line MapLibre draws for the route. */
 function lerpAlongRoute(a, b, t){
   if (t <= 0) return { lon: a.lon, lat: a.lat };
   if (t >= 1) return { lon: b.lon, lat: b.lat };
@@ -1668,6 +1890,27 @@ function lerpAlongRoute(a, b, t){
   );
   const ll = m.toLngLat();
   return { lon: ll.lng, lat: ll.lat };
+}
+
+function easeCamToward(targetZoom, targetLon, targetLat, dtSec){
+  if (camZoom == null) camZoom = map.getZoom();
+  if (camLon == null){ camLon = targetLon; camLat = targetLat; }
+  const dz = targetZoom - camZoom;
+  if (Math.abs(dz) >= CAM_ZOOM_DEADBAND){
+    const rate = dz < 0 ? CAM_ZOOM_OUT_RATE : CAM_ZOOM_IN_RATE;
+    const maxDz = rate * dtSec;
+    if (dz > maxDz) camZoom += maxDz;
+    else if (dz < -maxDz) camZoom -= maxDz;
+    else camZoom += dz * Math.min(1, 2.5 * dtSec);
+  }
+  const blend = Math.min(1, CAM_CENTER_BLEND * (dtSec * 60));
+  camLon += (targetLon - camLon) * blend;
+  camLat += (targetLat - camLat) * blend;
+  const cur = map.getCenter();
+  const zNow = map.getZoom();
+  if (Math.abs(camZoom - zNow) > 0.01 || Math.abs(camLon - cur.lng) > 1e-7 || Math.abs(camLat - cur.lat) > 1e-7){
+    map.jumpTo({ center: [camLon, camLat], zoom: camZoom });
+  }
 }
 
 function renderFrame(elapsed, frameDt){
@@ -1684,80 +1927,69 @@ function renderFrame(elapsed, frameDt){
     reachedIdx = phase.clusterIdx;
     a = c;
     b = clusters[Math.min(phase.clusterIdx + 1, n - 1)] || c;
-    segT = phase.clusterIdx >= n - 1 ? 1 : 0;
+    segT = 1;
+    popPinAt(phase.clusterIdx);
+    if (phase.clusterIdx > 0 && clusters[phase.clusterIdx].day !== clusters[phase.clusterIdx - 1].day && phase.t < 0.55){
+      const d = clusters[phase.clusterIdx];
+      showDayBanner('DAY ' + d.day + ' · ' + fmtDateShort(d.startTime));
+    } else if (phase.t > 0.7){
+      hideDayBanner();
+    }
     if (arrivalMode === 'popup'){
+      hideSpotCard();
       setArrivalBubble(null);
       syncArrivalSlideshow(c, phase.clusterIdx, phase.t);
     } else {
       hideArrivalSlideshow();
-      setArrivalBubble(placeTitle(c));
+      setArrivalBubble(null);
+      showSpotCard(c, phase.clusterIdx);
     }
   } else {
     const segIdx = phase.segIdx;
     a = clusters[segIdx];
     b = clusters[segIdx + 1] || a;
-    segT = phase.t;
-    ({ lat, lon } = lerpAlongRoute(a, b, segT));
-    nearIdx = segT < 0.5 ? segIdx : Math.min(segIdx + 1, n - 1);
-    reachedIdx = segT >= 0.98 ? Math.min(segIdx + 1, n - 1) : segIdx;
+    const eased = easeTravel(phase.t);
+    segT = eased;
+    ({ lat, lon } = lerpAlongRoute(a, b, eased));
+    nearIdx = eased < 0.5 ? segIdx : Math.min(segIdx + 1, n - 1);
+    if (eased >= 0.8) nearIdx = Math.min(segIdx + 1, n - 1);
+    reachedIdx = eased >= 0.98 ? Math.min(segIdx + 1, n - 1) : segIdx;
     setArrivalBubble(null);
     hideArrivalSlideshow();
+    hideSpotCard();
+    hideDayBanner();
   }
 
   if (movingMarker) movingMarker.setLngLat([lon, lat]);
   syncMovingMarkerPlaying();
 
   if (camFollow){
-    let targetZoom, targetLon, targetLat;
-    // Always track the traveler; hop zoom still uses segZoom so near/far scale feels right
-    targetLon = lon;
-    targetLat = lat;
+    let targetZoom = baseZoom;
+    let from = a, to = b;
+    let lead = 0;
+
     if (phase.kind === 'dwell'){
-      if (arrivalMode === 'popup' || phase.clusterIdx >= n - 1){
-        targetZoom = LAST_DWELL_ZOOM;
-      } else {
-        targetZoom = segZoom[phase.clusterIdx] ?? LAST_DWELL_ZOOM;
-      }
+      const near = phase.clusterIdx > 0 ? segNear[phase.clusterIdx - 1] : segNear[0];
+      targetZoom = near ? baseZoom : arrivalZoom;
+      lead = 0;
     } else {
-      targetZoom = segZoom[phase.segIdx] ?? map.getZoom();
+      const long = segLong[phase.segIdx];
+      const near = segNear[phase.segIdx];
+      lead = 1;
+      if (near){
+        targetZoom = baseZoom;
+      } else if (segT >= 0.8){
+        targetZoom = arrivalZoom;
+        lead = Math.max(0, 1 - (segT - 0.8) / 0.2);
+      } else if (long && segT > 0.3 && segT < 0.55){
+        targetZoom = Math.max(CAM_MIN_ZOOM, baseZoom - LONG_HOP_OUT);
+      } else {
+        targetZoom = baseZoom;
+      }
     }
 
-    const phaseKey = phase.kind + ':' + (phase.kind === 'dwell' ? phase.clusterIdx : phase.segIdx);
-    if (phaseKey !== lastCamPhaseKey){
-      lastCamPhaseKey = phaseKey;
-      camBoostLeftMs = CAM_BOOST_MS;
-    }
-
-    if (camZoom == null) camZoom = map.getZoom();
-    if (camLon == null){ camLon = targetLon; camLat = targetLat; }
-
-    const boost = camBoostLeftMs > 0 ? CAM_BOOST_MULT : 1;
-    if (camBoostLeftMs > 0){
-      camBoostLeftMs = Math.max(0, camBoostLeftMs - (frameDt || 16));
-    }
-
-    const dz = targetZoom - camZoom;
-    const absDz = Math.abs(dz);
-    const speedMul = Math.min(CAM_ZOOM_RATE_CAP, 1 + CAM_ZOOM_RATE_K * absDz) * boost;
-    if (absDz >= CAM_ZOOM_DEADBAND){
-      const rate = (dz < 0 ? CAM_ZOOM_OUT_RATE : CAM_ZOOM_IN_RATE) * speedMul;
-      const maxDz = rate * dtSec;
-      if (dz > maxDz) camZoom += maxDz;
-      else if (dz < -maxDz) camZoom -= maxDz;
-      else camZoom += dz * Math.min(1, 3 * dtSec * speedMul);
-    }
-
-    const centerBlend = Math.min(1, CAM_CENTER_BLEND * speedMul * (dtSec * 60));
-    camLon += (targetLon - camLon) * centerBlend;
-    camLat += (targetLat - camLat) * centerBlend;
-
-    const cur = map.getCenter();
-    const zNow = map.getZoom();
-    const moved =
-      Math.abs(camZoom - zNow) > 0.01 ||
-      Math.abs(camLon - cur.lng) > 1e-7 ||
-      Math.abs(camLat - cur.lat) > 1e-7;
-    if (moved) map.jumpTo({ center:[camLon, camLat], zoom: camZoom });
+    const leadPt = leadRoomCenter(lon, lat, from, to, lead);
+    easeCamToward(targetZoom, leadPt.lon, leadPt.lat, dtSec);
   }
 
   const traveled = [];
@@ -1784,6 +2016,118 @@ function renderFrame(elapsed, frameDt){
   $('tlRange').value = animTotal > 0 ? Math.round(elapsed / animTotal * 1000) : 0;
 }
 
+function renderIntroFrame(dtSec){
+  const c0 = clusters[0];
+  if (movingMarker) movingMarker.setLngLat([c0.lon, c0.lat]);
+  if (cineStage === 0){
+    // overview hold
+    camLon = overviewLon; camLat = overviewLat; camZoom = overviewZoom;
+    map.jumpTo({ center: [camLon, camLat], zoom: camZoom });
+  } else if (cineStage === 1){
+    const t = Math.min(1, cineElapsed / INTRO_ZOOM_MS);
+    const e = easeTravel(t);
+    camLon = overviewLon + (c0.lon - overviewLon) * e;
+    camLat = overviewLat + (c0.lat - overviewLat) * e;
+    camZoom = overviewZoom + (arrivalZoom - overviewZoom) * e;
+    map.jumpTo({ center: [camLon, camLat], zoom: camZoom });
+  } else {
+    camLon = c0.lon; camLat = c0.lat; camZoom = arrivalZoom;
+    map.jumpTo({ center: [camLon, camLat], zoom: camZoom });
+    showSpotCard(c0, 0);
+    popPinAt(0);
+  }
+}
+
+function renderOutroFrame(){
+  if (cineStage === 0) return;
+  const t = Math.min(1, cineElapsed / OUTRO_ZOOM_MS);
+  const e = easeTravel(t);
+  const startZ = outroStartZoom != null ? outroStartZoom : arrivalZoom;
+  const startLon = outroStartLon != null ? outroStartLon : clusters[clusters.length - 1].lon;
+  const startLat = outroStartLat != null ? outroStartLat : clusters[clusters.length - 1].lat;
+  camLon = startLon + (overviewLon - startLon) * e;
+  camLat = startLat + (overviewLat - startLat) * e;
+  camZoom = startZ + (overviewZoom - startZ) * e;
+  map.jumpTo({ center: [camLon, camLat], zoom: camZoom });
+  if (t > 0.55) showEndSummary();
+}
+
+let outroStartZoom = null, outroStartLon = null, outroStartLat = null;
+
+function startCineIntro(){
+  computeTripBaseZoom();
+  jumpToTripOverview();
+  camFollow = false;
+  cineMode = 'intro';
+  cineStage = 0;
+  cineElapsed = 0;
+  hideEndSummary();
+  hideSpotCard();
+  hideDayBanner();
+  if (movingMarker) movingMarker.setLngLat([clusters[0].lon, clusters[0].lat]);
+}
+
+function startCineOutro(){
+  hideSpotCard();
+  hideDayBanner();
+  hideArrivalSlideshow();
+  setArrivalBubble(null);
+  camFollow = false;
+  cineMode = 'outro';
+  cineStage = 0;
+  cineElapsed = 0;
+  outroStartZoom = map.getZoom();
+  outroStartLon = map.getCenter().lng;
+  outroStartLat = map.getCenter().lat;
+  captureOverviewCamera();
+}
+
+function tickPlayback(dtMs){
+  const dtSec = Math.max(0, Math.min(0.05, dtMs / 1000));
+  if (cineMode === 'intro'){
+    cineElapsed += dtMs;
+    if (cineStage === 0){
+      renderIntroFrame(dtSec);
+      if (cineElapsed >= INTRO_OVERVIEW_MS){ cineStage = 1; cineElapsed = 0; }
+    } else if (cineStage === 1){
+      renderIntroFrame(dtSec);
+      if (cineElapsed >= INTRO_ZOOM_MS){ cineStage = 2; cineElapsed = 0; }
+    } else {
+      renderIntroFrame(dtSec);
+      if (cineElapsed >= INTRO_HOLD_MS){
+        cineMode = 'main';
+        cineElapsed = 0;
+        animElapsed = 0;
+        camFollow = true;
+        lastPopPinIdx = null;
+        renderFrame(0, dtMs);
+      }
+    }
+    return false;
+  }
+  if (cineMode === 'outro'){
+    cineElapsed += dtMs;
+    if (cineStage === 0){
+      if (cineElapsed >= OUTRO_HOLD_MS){ cineStage = 1; cineElapsed = 0; }
+    } else {
+      renderOutroFrame();
+      if (cineElapsed >= OUTRO_ZOOM_MS){
+        cineMode = 'idle';
+        showEndSummary();
+        return true; // finished
+      }
+    }
+    return false;
+  }
+  // main
+  animElapsed = Math.min(animTotal, animElapsed + dtMs);
+  renderFrame(animElapsed, dtMs);
+  if (animElapsed >= animTotal){
+    startCineOutro();
+  }
+  return false;
+}
+
 function stepAnim(ts){
   if (!isPlaying) return;
   if (lastFrameTs == null) lastFrameTs = ts;
@@ -1791,12 +2135,15 @@ function stepAnim(ts){
   const speed = Number($('tlSpeed').value) || 1;
   const dt = rawDt * speed;
   lastFrameTs = ts;
-  animElapsed += dt;
-  // Pass speed-scaled dt so camera ease keeps up with sped-up dwell/travel
-  if (animElapsed >= animTotal){ animElapsed = animTotal; renderFrame(animElapsed, dt); pauseAnim(); return; }
-  renderFrame(animElapsed, dt);
+  const done = tickPlayback(dt);
+  if (done){
+    pauseAnim();
+    return;
+  }
+  if (cineMode === 'idle' && !isPlaying) return;
   rafId = requestAnimationFrame(stepAnim);
 }
+
 function cancelPlayIntro(){
   if (playIntroTimer != null){
     clearTimeout(playIntroTimer);
@@ -1806,13 +2153,10 @@ function cancelPlayIntro(){
 
 function playAnim(){
   if (clusters.length < 2 || isRecording) return;
-  if (animElapsed >= animTotal) animElapsed = 0;
-  camFollow = true;
   cancelPlayIntro();
+  hideEndSummary();
 
-  if (animElapsed === 0){
-    jumpToFirstHop();
-    if (movingMarker) movingMarker.setLngLat([clusters[0].lon, clusters[0].lat]);
+  if (cineMode === 'intro' || cineMode === 'outro'){
     isPlaying = true;
     lastFrameTs = null;
     syncMovingMarkerPlaying();
@@ -1821,31 +2165,27 @@ function playAnim(){
     return;
   }
 
-  const phase = phaseAtElapsed(animElapsed);
-  let pos, targetZoom;
-  if (phase.kind === 'dwell'){
-    const c = clusters[phase.clusterIdx];
-    pos = { lon: c.lon, lat: c.lat };
-    targetZoom = (arrivalMode === 'popup' || phase.clusterIdx >= clusters.length - 1)
-      ? LAST_DWELL_ZOOM
-      : (segZoom[phase.clusterIdx] ?? map.getZoom());
-  } else {
-    const a = clusters[phase.segIdx], b = clusters[phase.segIdx + 1] || a;
-    pos = lerpAlongRoute(a, b, phase.t);
-    targetZoom = segZoom[phase.segIdx] ?? map.getZoom();
-  }
-  camLon = pos.lon;
-  camLat = pos.lat;
-  camZoom = targetZoom;
-  map.jumpTo({ center:[camLon, camLat], zoom: camZoom });
-  lastCamPhaseKey = null;
-  camBoostLeftMs = CAM_BOOST_MS;
+  if (animElapsed >= animTotal) animElapsed = 0;
 
-  isPlaying = true; lastFrameTs = null;
+  if (animElapsed === 0){
+    startCineIntro();
+    isPlaying = true;
+    lastFrameTs = null;
+    syncMovingMarkerPlaying();
+    $('btnPlay').textContent = '⏸ 일시정지';
+    rafId = requestAnimationFrame(stepAnim);
+    return;
+  }
+
+  cineMode = 'main';
+  camFollow = true;
+  isPlaying = true;
+  lastFrameTs = null;
   syncMovingMarkerPlaying();
   $('btnPlay').textContent = '⏸ 일시정지';
   rafId = requestAnimationFrame(stepAnim);
 }
+
 function pauseAnim(){
   cancelPlayIntro();
   isPlaying = false;
@@ -1855,13 +2195,18 @@ function pauseAnim(){
   const playBtn = $('btnPlay');
   if (playBtn) playBtn.textContent = '▶ 미리보기';
 }
+
 function stopAnim(){
   pauseAnim();
   animElapsed = 0;
+  cineMode = 'idle';
   setArrivalBubble(null);
   hideArrivalSlideshow();
+  hideSpotCard();
+  hideDayBanner();
+  hideEndSummary();
   lastCamPhaseKey = null;
-  camBoostLeftMs = 0;
+  lastPopPinIdx = null;
 }
 
 function pickRecorderMime(){
@@ -2019,7 +2364,7 @@ function drawExportFrame(ctx, outW, outH, markerImgs, exportIconImg, visitedSet,
       const iw = 20 * Math.min(sx, sy);
       ctx.drawImage(exportIconImg, x - iw / 2, y - core - iw - 2 * sy, iw, iw);
     }
-    if (arrivalBubbleLabel && arrivalMode === 'move'){
+    if (arrivalBubbleLabel && arrivalMode === 'move' && !spotCardState){
       const fontPx = Math.max(11, 12 * s);
       ctx.font = `600 ${fontPx}px sans-serif`;
       ctx.textAlign = 'center';
@@ -2053,6 +2398,104 @@ function drawExportFrame(ctx, outW, outH, markerImgs, exportIconImg, visitedSet,
       ctx.fillStyle = '#e8eaef';
       ctx.fillText(arrivalBubbleLabel, x, by + bh / 2, bw - padX * 2);
     }
+  }
+
+  // Mini spot card (move mode)
+  if (arrivalMode === 'move' && spotCardState){
+    const s = Math.min(sx, sy);
+    const cardW = Math.min(280 * s, outW * 0.55);
+    const pad = 12 * s;
+    const cardH = 78 * s;
+    const bx = (outW - cardW) / 2;
+    const by = outH - 110 * sy - cardH;
+    const rr = 14 * s;
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(bx + rr, by);
+    ctx.arcTo(bx + cardW, by, bx + cardW, by + cardH, rr);
+    ctx.arcTo(bx + cardW, by + cardH, bx, by + cardH, rr);
+    ctx.arcTo(bx, by + cardH, bx, by, rr);
+    ctx.arcTo(bx, by, bx + cardW, by, rr);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(255,255,255,0.94)';
+    ctx.fill();
+    ctx.fillStyle = '#5a6b5e';
+    ctx.font = `700 ${Math.max(10, 11 * s)}px sans-serif`;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    ctx.fillText(spotCardState.order, bx + pad, by + pad);
+    ctx.fillStyle = '#1a1a1a';
+    ctx.font = `600 ${Math.max(14, 17 * s)}px sans-serif`;
+    ctx.fillText(spotCardState.name, bx + pad, by + pad + 16 * s, cardW - pad * 2);
+    ctx.fillStyle = '#667085';
+    ctx.font = `${Math.max(11, 12 * s)}px sans-serif`;
+    ctx.fillText(spotCardState.time + '  ·  사진 ' + spotCardState.photos + '장', bx + pad, by + pad + 40 * s, cardW - pad * 2);
+    ctx.restore();
+  }
+
+  if (dayBannerText){
+    const s = Math.min(sx, sy);
+    const fontPx = Math.max(12, 13 * s);
+    ctx.font = `600 ${fontPx}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const tw = ctx.measureText(dayBannerText).width;
+    const bw = tw + 28 * s, bh = fontPx + 16 * s;
+    const bx = (outW - bw) / 2, by = 18 * sy;
+    const rr = bh / 2;
+    ctx.beginPath();
+    ctx.moveTo(bx + rr, by);
+    ctx.arcTo(bx + bw, by, bx + bw, by + bh, rr);
+    ctx.arcTo(bx + bw, by + bh, bx, by + bh, rr);
+    ctx.arcTo(bx, by + bh, bx, by, rr);
+    ctx.arcTo(bx, by, bx + bw, by, rr);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(18,21,28,0.88)';
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.fillText(dayBannerText, outW / 2, by + bh / 2);
+  }
+
+  const endEl = $('endSummary');
+  if (endEl && endEl.classList.contains('show')){
+    const s = Math.min(sx, sy);
+    const cardW = Math.min(420 * s, outW * 0.88);
+    const cardH = 110 * s;
+    const bx = (outW - cardW) / 2;
+    const by = outH - 120 * sy - cardH;
+    const rr = 16 * s;
+    ctx.fillStyle = 'rgba(0,0,0,0.25)';
+    ctx.fillRect(0, outH * 0.45, outW, outH * 0.55);
+    ctx.beginPath();
+    ctx.moveTo(bx + rr, by);
+    ctx.arcTo(bx + cardW, by, bx + cardW, by + cardH, rr);
+    ctx.arcTo(bx + cardW, by + cardH, bx, by + cardH, rr);
+    ctx.arcTo(bx, by + cardH, bx, by, rr);
+    ctx.arcTo(bx, by, bx + cardW, by, rr);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(255,255,255,0.95)';
+    ctx.fill();
+    const cols = [
+      [$('esSpots').textContent, 'SPOTS'],
+      [$('esPhotos').textContent, 'PHOTOS'],
+      [$('esDays').textContent, 'DAYS'],
+      [$('esKm').textContent, 'KM']
+    ];
+    const colW = cardW / 4;
+    cols.forEach((c, i) => {
+      const cx = bx + colW * (i + 0.5);
+      ctx.fillStyle = '#1a1a1a';
+      ctx.font = `700 ${Math.max(14, 18 * s)}px sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(c[0], cx, by + 32 * s);
+      ctx.fillStyle = '#667085';
+      ctx.font = `${Math.max(9, 10 * s)}px sans-serif`;
+      ctx.fillText(c[1], cx, by + 52 * s);
+    });
+    ctx.fillStyle = '#667085';
+    ctx.font = `${Math.max(10, 11 * s)}px sans-serif`;
+    ctx.fillText('사진 촬영 위치 간 직선거리 기준', outW / 2, by + cardH - 18 * s);
   }
 
   // Popup slideshow card (screen-centered), matching the live overlay
@@ -2127,6 +2570,7 @@ function jumpToTripOverview(){
   if (clusters.length === 1){
     map.jumpTo({ center:[clusters[0].lon, clusters[0].lat], zoom:13 });
     camZoom = 13; camLon = clusters[0].lon; camLat = clusters[0].lat;
+    overviewZoom = 13; overviewLon = clusters[0].lon; overviewLat = clusters[0].lat;
     return;
   }
   const b = new maplibregl.LngLatBounds();
@@ -2138,6 +2582,9 @@ function jumpToTripOverview(){
       camZoom = cam.zoom;
       camLon = cam.center.lng;
       camLat = cam.center.lat;
+      overviewZoom = cam.zoom;
+      overviewLon = cam.center.lng;
+      overviewLat = cam.center.lat;
     }
   } catch (e) {
     map.fitBounds(b, { padding, maxZoom: CAM_MAX_ZOOM, duration: 0 });
@@ -2174,6 +2621,7 @@ async function recordAndDownload(){
 
   const chrome = [
     $('timeline'), $('btnFitAll'), $('sidebarToggle'), $('detailpanel'), $('arrivalSlideshow'),
+    $('spotCard'), $('dayBanner'), $('endSummary'),
     ...document.querySelectorAll('.maplibregl-ctrl')
   ].filter(Boolean);
   chrome.forEach(el => {
@@ -2185,13 +2633,10 @@ async function recordAndDownload(){
     animElapsed = 0;
     lastCamPhaseKey = null;
     hideArrivalSlideshow();
+    hideSpotCard();
+    hideDayBanner();
+    hideEndSummary();
     setArrivalBubble(null);
-
-    // Video opens on whole-trip overview (same scale as after load / fit-all)
-    camFollow = false;
-    jumpToTripOverview();
-    await waitMapFrame();
-    await waitMapFrame();
 
     const mapCanvas = map.getCanvas();
     const out = document.createElement('canvas');
@@ -2225,45 +2670,43 @@ async function recordAndDownload(){
 
     const speed = Number($('tlSpeed').value) || 1;
     syncMovingMarkerPlaying();
+    startCineIntro();
+    await waitMapFrame();
+    await waitMapFrame();
 
-    // Hold overview briefly before easing into the first hop
-    const overviewFrames = Math.max(1, Math.round((OVERVIEW_HOLD_MS / speed) / frameDt));
-    if (movingMarker) movingMarker.setLngLat([clusters[0].lon, clusters[0].lat]);
-    for (let i = 0; i < overviewFrames; i++){
-      drawExportFrame(ctx, out.width, out.height, markerImgs, exportIconImg, new Set([0]), slideImgMap);
-      await waitMapFrame();
-      await new Promise(r => setTimeout(r, Math.max(8, frameDt - 4)));
-    }
-
-    camFollow = true;
-    camZoom = map.getZoom();
-    camLon = map.getCenter().lng;
-    camLat = map.getCenter().lat;
-    lastCamPhaseKey = null;
-
-    const maxFrames = Math.ceil((animTotal / speed) / frameDt) + fps * 3;
+    const introMs = INTRO_OVERVIEW_MS + INTRO_ZOOM_MS + INTRO_HOLD_MS;
+    const outroMs = OUTRO_HOLD_MS + OUTRO_ZOOM_MS;
+    const totalMs = introMs + animTotal + outroMs;
+    const maxFrames = Math.ceil((totalMs / speed) / frameDt) + fps * 2;
     let frames = 0;
+    let done = false;
 
     btn.textContent = '0%';
     badge.textContent = '녹화 중 0%';
 
-    while (animElapsed < animTotal && frames++ < maxFrames){
+    while (!done && frames++ < maxFrames){
       const animDt = frameDt * speed;
-      animElapsed = Math.min(animTotal, animElapsed + animDt);
-      renderFrame(animElapsed, animDt);
+      done = tickPlayback(animDt);
       await waitMapFrame();
       const visited = new Set();
       markers.forEach((m, i) => { if (m._el.classList.contains('visited')) visited.add(i); });
       drawExportFrame(ctx, out.width, out.height, markerImgs, exportIconImg, visited, slideImgMap);
-      const pct = Math.round((animElapsed / animTotal) * 100);
+      let progress = 0;
+      if (cineMode === 'intro') progress = (cineElapsed / introMs) * 8;
+      else if (cineMode === 'main' || cineMode === 'outro'){
+        progress = 8 + (animElapsed / Math.max(1, animTotal)) * 84;
+        if (cineMode === 'outro') progress = 92 + Math.min(8, (cineElapsed / outroMs) * 8);
+      } else progress = 100;
+      const pct = Math.max(0, Math.min(100, Math.round(progress)));
       btn.textContent = pct + '%';
       badge.textContent = '녹화 중 ' + pct + '%';
       await new Promise(r => setTimeout(r, Math.max(8, frameDt - 4)));
     }
 
-    // hold last frame briefly
+    // hold final summary briefly
+    showEndSummary();
     const visitedEnd = new Set(clusters.map((_, i) => i));
-    for (let i = 0; i < Math.round(fps * 0.7); i++){
+    for (let i = 0; i < Math.round(fps * 0.8); i++){
       drawExportFrame(ctx, out.width, out.height, markerImgs, exportIconImg, visitedEnd, slideImgMap);
       await new Promise(r => setTimeout(r, frameDt));
     }
@@ -2319,8 +2762,13 @@ $('btnReplay').addEventListener('click', () => {
   pauseAnim();
   cancelPlayIntro();
   animElapsed = 0;
-  camFollow = true;
+  cineMode = 'idle';
+  hideSpotCard();
+  hideDayBanner();
+  hideEndSummary();
+  camFollow = false;
   camZoom = null; camLon = null; camLat = null;
+  lastPopPinIdx = null;
   renderFrame(0);
   fitToClusters();
 });
@@ -2328,7 +2776,10 @@ $('tlRange').addEventListener('input', e => {
   if (isRecording) return;
   pauseAnim();
   cancelPlayIntro();
+  cineMode = 'main';
+  hideEndSummary();
   animElapsed = Number(e.target.value)/1000 * animTotal;
+  camFollow = true;
   renderFrame(animElapsed);
 });
 $('btnFitAll').addEventListener('click', () => {
