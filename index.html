@@ -47,6 +47,7 @@
     padding:8px 10px;}
 
   #stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:0 16px 12px;}
+  #stats .trip-title-row{grid-column:1 / -1;padding:0 0 4px;background:transparent;border:none;}
   .stat{background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;}
   .stat .n{font-size:18px;font-weight:700;font-variant-numeric:tabular-nums;}
   .stat .l{font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:.4px;}
@@ -237,17 +238,44 @@
   .photo-marker .pin.pop-in{animation:pinPop .55s cubic-bezier(.45,0,.2,1) forwards;}
   @keyframes pinPop{0%{transform:scale(.7)}60%{transform:scale(1.05)}100%{transform:scale(1)}}
 
+  #topProgress{position:absolute;left:50%;top:calc(12px + env(safe-area-inset-top));
+    transform:translateX(-50%) translateY(-8px);z-index:12;min-width:180px;max-width:min(360px,88vw);
+    padding:10px 14px;border-radius:12px;background:rgba(255,255,255,.94);color:#1a1a1a;
+    box-shadow:0 6px 20px rgba(0,0,0,.18);pointer-events:none;opacity:0;visibility:hidden;
+    transition:opacity .28s ease, transform .28s cubic-bezier(.45,0,.2,1), visibility .28s;}
+  #topProgress.show{opacity:1;visibility:visible;transform:translateX(-50%) translateY(0);}
+  #topProgress.swap{opacity:0;transform:translateX(-50%) translateY(-6px);}
+  #topProgress .tp-order{font-size:11px;font-weight:700;letter-spacing:.06em;color:#5a6b5e;}
+  #topProgress .tp-name{font-family:var(--font-display);font-size:15px;font-weight:600;line-height:1.25;
+    margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+  #tripIntro{position:absolute;inset:0;z-index:14;display:flex;align-items:center;justify-content:center;
+    padding:24px;pointer-events:none;opacity:0;visibility:hidden;
+    background:rgba(0,0,0,.35);transition:opacity .32s ease, visibility .32s;}
+  #tripIntro.show{opacity:1;visibility:visible;}
+  #tripIntro .ti-card{width:min(340px,90%);background:rgba(255,255,255,.95);color:#1a1a1a;
+    border-radius:16px;padding:22px 20px;box-shadow:0 12px 36px rgba(0,0,0,.28);text-align:center;
+    transform:translateY(10px) scale(.97);transition:transform .32s cubic-bezier(.45,0,.2,1);}
+  #tripIntro.show .ti-card{transform:translateY(0) scale(1);}
+  #tripIntro .ti-title{font-family:var(--font-display);font-size:22px;font-weight:700;line-height:1.3;}
+  #tripIntro .ti-days{margin-top:10px;font-size:14px;font-weight:700;letter-spacing:.04em;color:#5a6b5e;}
+  #tripIntro .ti-range{margin-top:6px;font-size:12px;color:#667085;}
+
+  .trip-title-row{display:flex;align-items:center;gap:8px;padding:0 16px 10px;}
+  .trip-title-row .tt-label{font-size:11px;color:var(--sub);text-transform:uppercase;letter-spacing:.4px;}
+  .trip-title-row .tt-name{flex:1;min-width:0;font-family:var(--font-display);font-size:15px;font-weight:600;
+    color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .trip-title-row .tt-edit{flex-shrink:0;background:none;border:none;color:var(--sub);font-size:14px;padding:4px 6px;
+    cursor:pointer;border-radius:6px;}
+  .trip-title-row .tt-edit:hover{color:var(--text);background:var(--panel2);}
+
   #spotCard{position:absolute;left:50%;bottom:calc(100px + env(safe-area-inset-bottom));
     transform:translateX(-50%) translateY(16px) scale(.97);z-index:11;min-width:200px;max-width:min(320px,88vw);
-    padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.94);color:#1a1a1a;
+    padding:10px;border-radius:14px;background:rgba(255,255,255,.94);color:#1a1a1a;
     box-shadow:0 8px 28px rgba(0,0,0,.22);pointer-events:none;opacity:0;visibility:hidden;
     transition:opacity .32s ease, transform .32s cubic-bezier(.45,0,.2,1), visibility .32s, bottom .28s ease;}
   #spotCard.show{opacity:1;visibility:visible;transform:translateX(-50%) translateY(0) scale(1);}
-  #spotCard .sc-order{font-size:11px;font-weight:700;letter-spacing:.06em;color:#5a6b5e;margin-bottom:4px;}
-  #spotCard .sc-name{font-family:var(--font-display);font-size:17px;font-weight:600;line-height:1.25;}
-  #spotCard .sc-meta{margin-top:6px;font-size:12px;color:#667085;display:flex;gap:10px;flex-wrap:wrap;}
-  #spotCard .sc-photo-wrap{display:none;margin-top:10px;}
-  #spotCard.has-photo .sc-photo-wrap{display:block;}
+  #spotCard .sc-photo-wrap{display:block;margin-top:0;}
   #spotCard .sc-photo{width:100%;aspect-ratio:4/3;max-height:150px;border-radius:10px;background-size:cover;
     background-position:center;background-color:#e8ebe9;transition:opacity .22s ease;}
   #spotCard .sc-photo.swap{opacity:0;}
@@ -258,7 +286,7 @@
   #mapwrap:has(#timeline.is-compact) #endSummary{
     padding-bottom:calc(64px + env(safe-area-inset-bottom));}
 
-  #dayBanner{position:absolute;top:calc(18px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);
+  #dayBanner{position:absolute;top:calc(64px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);
     z-index:11;padding:8px 14px;border-radius:999px;background:rgba(18,21,28,.88);color:#fff;
     font-size:13px;font-weight:600;letter-spacing:.04em;opacity:0;visibility:hidden;pointer-events:none;
     transition:opacity .35s ease, visibility .35s;}
@@ -397,6 +425,13 @@
     </div>
 
     <div id="stats" style="display:none;">
+      <div class="trip-title-row">
+        <div style="flex:1;min-width:0;">
+          <div class="tt-label">여행 제목</div>
+          <div class="tt-name" id="tripTitleLabel">나의 여행</div>
+        </div>
+        <button type="button" class="tt-edit" id="btnTripTitle" title="여행 제목 바꾸기">✏️</button>
+      </div>
       <div class="stat"><div class="n" id="statTotal">0</div><div class="l">전체 사진</div></div>
       <div class="stat"><div class="n" id="statGeo">0</div><div class="l">GPS 있음</div></div>
       <div class="stat"><div class="n" id="statPlaces">0</div><div class="l">장소(클러스터)</div></div>
@@ -433,10 +468,10 @@
       </div>
       <div id="arrivalModePicker" class="mode-picker">
         <button type="button" class="mode-btn active" data-mode="move">이동만
-          <span class="mode-sub">메타 카드만</span>
+          <span class="mode-sub">상단 진행 바만</span>
         </button>
         <button type="button" class="mode-btn" data-mode="popup">팝업
-          <span class="mode-sub">메타 + 사진 슬라이드</span>
+          <span class="mode-sub">상단 바 + 사진 슬라이드</span>
         </button>
       </div>
     </div>
@@ -452,13 +487,20 @@
     <button id="sidebarToggle">☰</button>
     <div id="backdrop"></div>
 
-    <div id="spotCard" aria-hidden="true">
-      <div class="sc-order" id="scOrder">01 / 01</div>
-      <div class="sc-name" id="scName">장소</div>
-      <div class="sc-meta">
-        <span id="scTime">-</span>
-        <span id="scPhotos">사진 0장</span>
+    <div id="topProgress" aria-hidden="true">
+      <div class="tp-order" id="tpOrder">01 / 01</div>
+      <div class="tp-name" id="tpName">장소</div>
+    </div>
+
+    <div id="tripIntro" aria-hidden="true">
+      <div class="ti-card">
+        <div class="ti-title" id="tiTitle">나의 여행</div>
+        <div class="ti-days" id="tiDays">DAY TRIP</div>
+        <div class="ti-range" id="tiRange">-</div>
       </div>
+    </div>
+
+    <div id="spotCard" aria-hidden="true">
       <div class="sc-photo-wrap" id="scPhotoWrap">
         <div class="sc-photo" id="scPhoto"></div>
         <div class="sc-slide-count" id="scSlideCount"></div>
@@ -611,7 +653,7 @@ const CAM_ZOOM_DEADBAND = 0.04;
 const DWELL_MS = 700;
 const SLIDE_MS = 650;
 const PHOTO_SLIDE_MAX = 6;
-const INTRO_OVERVIEW_MS = 450;
+const INTRO_OVERVIEW_MS = 700;
 const INTRO_ZOOM_MS = 600;
 const INTRO_HOLD_MS = 350;
 const OUTRO_HOLD_MS = 400;
@@ -621,9 +663,19 @@ const NEAR_HOP_KM = 2;
 const LONG_HOP_KM = 80;
 const LONG_HOP_OUT = 0.85;
 const LEAD_FRAC = 0.10;
-const TIGHT_HOP_DELTA = 0.35; // hopFit > baseZoom + this → brief zoom-in
+const TIGHT_HOP_DELTA = 0.35;
 const LS_ARRIVAL_MODE = 'travel-tracker-arrival-mode';
 const LS_PHOTO_FAN_LEGACY = 'travel-tracker-photo-fan';
+const LS_TRIP_TITLE = 'travel-tracker-trip-title';
+
+let tripTitleCustom = null;
+try {
+  const savedTitle = localStorage.getItem(LS_TRIP_TITLE);
+  if (savedTitle != null && savedTitle !== '') tripTitleCustom = savedTitle;
+} catch (e) { /* ignore */ }
+
+let topProgressState = null;
+let tripIntroVisible = false;
 
 const $ = (id) => document.getElementById(id);
 
@@ -849,11 +901,56 @@ function placeTitle(c){
   return c.customName || c.placeName || `장소 ${idx >= 0 ? idx + 1 : '?'}`;
 }
 
+function defaultTripTitle(){
+  if (!clusters.length) return '나의 여행';
+  return placeTitle(clusters[0]) + ' 여행';
+}
+
+function getTripTitle(){
+  if (tripTitleCustom != null && String(tripTitleCustom).trim() !== '') return String(tripTitleCustom).trim();
+  return defaultTripTitle();
+}
+
+function setTripTitleCustom(val){
+  const t = val == null ? '' : String(val).trim();
+  if (!t){
+    tripTitleCustom = null;
+    try { localStorage.removeItem(LS_TRIP_TITLE); } catch (e) { /* ignore */ }
+  } else {
+    tripTitleCustom = t;
+    try { localStorage.setItem(LS_TRIP_TITLE, t); } catch (e) { /* ignore */ }
+  }
+  refreshTripTitleUI();
+}
+
+function tripStayLabel(){
+  if (!clusters.length) return { en: 'DAY TRIP', ko: '당일', n: 0 };
+  const n = new Set(clusters.map(c => c.day)).size;
+  if (n <= 1) return { en: 'DAY TRIP', ko: '당일', n: 1 };
+  return { en: n + ' DAYS', ko: (n - 1) + '박 ' + n + '일', n };
+}
+
+function tripDateRangeLabel(){
+  if (!clusters.length) return '-';
+  const first = clusters[0].startTime;
+  const last = clusters[clusters.length - 1].startTime;
+  const a = fmtDateShort(first);
+  if (!(last instanceof Date) || isNaN(last) || dateKey(first) === dateKey(last)) return a;
+  if (first.getFullYear() === last.getFullYear()){
+    return a + ' – ' + String(last.getMonth() + 1).padStart(2, '0') + '.' + String(last.getDate()).padStart(2, '0');
+  }
+  return a + ' – ' + fmtDateShort(last);
+}
+
+function refreshTripTitleUI(){
+  const el = $('tripTitleLabel');
+  if (el) el.textContent = getTripTitle();
+  const ti = $('tiTitle');
+  if (ti) ti.textContent = getTripTitle();
+}
+
 function tripDayLabel(){
-  if (!clusters.length) return 'DAY TRIP';
-  const days = new Set(clusters.map(c => c.day));
-  if (days.size <= 1) return 'DAY TRIP';
-  return days.size + ' DAYS';
+  return tripStayLabel().en;
 }
 
 function tripStraightKm(){
@@ -896,54 +993,17 @@ function hideSpotCard(){
 }
 
 function clearSpotCardPhoto(){
-  const el = $('spotCard');
-  if (el) el.classList.remove('has-photo');
-  if (spotCardState){
-    spotCardState.photoUrl = null;
-    spotCardState.slideIndex = null;
-    spotCardState.slideTotal = null;
-  }
-  lastSlideKey = null;
-  const photoEl = $('scPhoto');
-  if (photoEl){
-    photoEl.classList.remove('swap');
-    photoEl.style.backgroundImage = '';
-  }
-  const countEl = $('scSlideCount');
-  if (countEl) countEl.textContent = '';
+  hideSpotCard();
 }
 
-function showSpotCard(cluster, idx){
-  if (!cluster){ hideSpotCard(); return; }
-  const el = $('spotCard');
-  if (!el) return;
-  const order = String(idx + 1).padStart(2, '0') + ' / ' + String(clusters.length).padStart(2, '0');
-  const timeStr = fmtDateTime(cluster.startTime);
-  const name = placeTitle(cluster);
-  $('scOrder').textContent = order;
-  $('scName').textContent = name;
-  $('scTime').textContent = timeStr;
-  $('scPhotos').textContent = '사진 ' + cluster.photos.length + '장';
-  const prevPhoto = spotCardState && spotCardState.idx === idx ? spotCardState.photoUrl : null;
-  const prevSlide = spotCardState && spotCardState.idx === idx ? spotCardState.slideIndex : null;
-  const prevTotal = spotCardState && spotCardState.idx === idx ? spotCardState.slideTotal : null;
-  spotCardState = {
-    order, name, time: timeStr,
-    photos: cluster.photos.length, idx,
-    photoUrl: prevPhoto, slideIndex: prevSlide, slideTotal: prevTotal
-  };
-  el.classList.add('show');
-  el.setAttribute('aria-hidden', 'false');
-}
-
-function updateSpotCardPhoto(cluster, clusterIdx, dwellT){
+function showSpotCardPhoto(cluster, clusterIdx, dwellT){
   if (arrivalMode !== 'popup' || !cluster){
-    clearSpotCardPhoto();
+    hideSpotCard();
     return;
   }
   const photos = slidePhotosForCluster(cluster);
   if (!photos.length){
-    clearSpotCardPhoto();
+    hideSpotCard();
     return;
   }
   const slideIdx = Math.min(photos.length - 1, Math.floor(Math.min(0.999, Math.max(0, dwellT)) * photos.length));
@@ -954,13 +1014,18 @@ function updateSpotCardPhoto(cluster, clusterIdx, dwellT){
   const countEl = $('scSlideCount');
   if (!el || !photoEl || !countEl) return;
 
-  el.classList.add('has-photo');
+  const order = String(clusterIdx + 1).padStart(2, '0') + ' / ' + String(clusters.length).padStart(2, '0');
+  const name = placeTitle(cluster);
+  const timeStr = fmtDateTime(cluster.startTime);
+  spotCardState = {
+    order, name, time: timeStr,
+    photos: cluster.photos.length, idx: clusterIdx,
+    photoUrl: photo.url, slideIndex: slideIdx, slideTotal: photos.length
+  };
+
+  el.classList.add('show', 'has-photo');
+  el.setAttribute('aria-hidden', 'false');
   countEl.textContent = (slideIdx + 1) + ' / ' + photos.length;
-  if (spotCardState){
-    spotCardState.photoUrl = photo.url;
-    spotCardState.slideIndex = slideIdx;
-    spotCardState.slideTotal = photos.length;
-  }
 
   if (lastSlideKey === key) return;
   const prevKey = lastSlideKey;
@@ -975,6 +1040,58 @@ function updateSpotCardPhoto(cluster, clusterIdx, dwellT){
     photoEl.classList.remove('swap');
     photoEl.style.backgroundImage = `url(${photo.url})`;
   }
+}
+
+function hideTopProgress(){
+  topProgressState = null;
+  const el = $('topProgress');
+  if (!el) return;
+  el.classList.remove('show', 'swap');
+  el.setAttribute('aria-hidden', 'true');
+}
+
+function showTopProgress(cluster, idx){
+  if (!cluster){ hideTopProgress(); return; }
+  const el = $('topProgress');
+  if (!el) return;
+  const order = String(idx + 1).padStart(2, '0') + ' / ' + String(clusters.length).padStart(2, '0');
+  const name = placeTitle(cluster);
+  const prevIdx = topProgressState ? topProgressState.idx : null;
+  topProgressState = { order, name, idx };
+  $('tpOrder').textContent = order;
+  $('tpName').textContent = name;
+
+  const already = el.classList.contains('show');
+  if (already && prevIdx != null && prevIdx !== idx){
+    el.classList.add('swap');
+    requestAnimationFrame(() => {
+      el.classList.remove('swap');
+      el.classList.add('show');
+    });
+  } else {
+    el.classList.add('show');
+  }
+  el.setAttribute('aria-hidden', 'false');
+}
+
+function hideTripIntro(){
+  tripIntroVisible = false;
+  const el = $('tripIntro');
+  if (!el) return;
+  el.classList.remove('show');
+  el.setAttribute('aria-hidden', 'true');
+}
+
+function showTripIntro(){
+  tripIntroVisible = true;
+  const el = $('tripIntro');
+  if (!el) return;
+  const stay = tripStayLabel();
+  $('tiTitle').textContent = getTripTitle();
+  $('tiDays').textContent = stay.n > 1 ? stay.ko + ' · ' + stay.en : stay.en;
+  $('tiRange').textContent = tripDateRangeLabel();
+  el.classList.add('show');
+  el.setAttribute('aria-hidden', 'false');
 }
 
 function hideDayBanner(){
@@ -1425,6 +1542,7 @@ function updateClusterLabel(idx){
   if (activeCluster === idx){
     $('dpTitle').textContent = placeLabel(c);
   }
+  if (idx === 0) refreshTripTitleUI();
 }
 
 const SCALE_PRESETS = { day: 150, city: 3000, country: 30000 };
@@ -1545,7 +1663,7 @@ setThemeColor('progress', progressColor);
       arrivalMode = mode;
       try { localStorage.setItem(LS_ARRIVAL_MODE, arrivalMode); } catch (e) { /* ignore */ }
       syncBtns();
-      if (arrivalMode === 'move') clearSpotCardPhoto();
+      if (arrivalMode === 'move') hideSpotCard();
       if (clusters.length >= 2){
         const ratio = animTotal > 0 ? animElapsed / animTotal : 0;
         computeSegments();
@@ -1753,6 +1871,7 @@ $('dpEdit').addEventListener('click', () => {
   if (val === null) return;
   c.customName = val.trim() || undefined;
   renderPlaceList();
+  refreshTripTitleUI();
   selectCluster(activeCluster, false);
 });
 $('dpDel').addEventListener('click', () => {
@@ -1909,6 +2028,8 @@ function setupAnimation(){
   hideSpotCard();
   hideDayBanner();
   hideEndSummary();
+  hideTopProgress();
+  hideTripIntro();
   camFollow = false;
   cineMode = 'idle';
   if (map.getSource('route-progress')) map.getSource('route-progress').setData(emptyLine());
@@ -1927,6 +2048,7 @@ function setupAnimation(){
   $('tlEnd').textContent = fmtDateShort(clusters[clusters.length-1].startTime);
   $('tlPlace').textContent = dayPlaceLabel(clusters[0]);
   $('tlRange').value = 0;
+  refreshTripTitleUI();
   renderFrame(0);
 }
 
@@ -1988,9 +2110,13 @@ function renderFrame(elapsed, frameDt){
       hideDayBanner();
     }
     setArrivalBubble(null);
-    showSpotCard(c, phase.clusterIdx);
-    if (arrivalMode === 'popup') updateSpotCardPhoto(c, phase.clusterIdx, phase.t);
-    else clearSpotCardPhoto();
+    if (isPlaying || isRecording || cineMode === 'main' || (cineMode === 'intro' && cineStage >= 2)){
+      showTopProgress(c, phase.clusterIdx);
+    } else {
+      hideTopProgress();
+    }
+    if (arrivalMode === 'popup') showSpotCardPhoto(c, phase.clusterIdx, phase.t);
+    else hideSpotCard();
   } else {
     const segIdx = phase.segIdx;
     a = clusters[segIdx];
@@ -2004,6 +2130,11 @@ function renderFrame(elapsed, frameDt){
     setArrivalBubble(null);
     hideSpotCard();
     hideDayBanner();
+    if (isPlaying || isRecording || cineMode === 'main' || (cineMode === 'intro' && cineStage >= 2)){
+      showTopProgress(clusters[nearIdx], nearIdx);
+    } else {
+      hideTopProgress();
+    }
   }
 
   if (movingMarker) movingMarker.setLngLat([lon, lat]);
@@ -2074,10 +2205,14 @@ function renderIntroFrame(dtSec){
   const c0 = clusters[0];
   if (movingMarker) movingMarker.setLngLat([c0.lon, c0.lat]);
   if (cineStage === 0){
-    // overview hold
     camLon = overviewLon; camLat = overviewLat; camZoom = overviewZoom;
     map.jumpTo({ center: [camLon, camLat], zoom: camZoom });
+    showTripIntro();
+    hideTopProgress();
+    hideSpotCard();
   } else if (cineStage === 1){
+    hideTripIntro();
+    hideTopProgress();
     const t = Math.min(1, cineElapsed / INTRO_ZOOM_MS);
     const e = easeTravel(t);
     camLon = overviewLon + (c0.lon - overviewLon) * e;
@@ -2085,11 +2220,12 @@ function renderIntroFrame(dtSec){
     camZoom = overviewZoom + (arrivalZoom - overviewZoom) * e;
     map.jumpTo({ center: [camLon, camLat], zoom: camZoom });
   } else {
+    hideTripIntro();
     camLon = c0.lon; camLat = c0.lat; camZoom = arrivalZoom;
     map.jumpTo({ center: [camLon, camLat], zoom: camZoom });
-    showSpotCard(c0, 0);
-    if (arrivalMode === 'popup') updateSpotCardPhoto(c0, 0, 0);
-    else clearSpotCardPhoto();
+    showTopProgress(c0, 0);
+    if (arrivalMode === 'popup') showSpotCardPhoto(c0, 0, 0);
+    else hideSpotCard();
     popPinAt(0);
   }
 }
@@ -2120,12 +2256,16 @@ function startCineIntro(){
   hideEndSummary();
   hideSpotCard();
   hideDayBanner();
+  hideTopProgress();
+  showTripIntro();
   if (movingMarker) movingMarker.setLngLat([clusters[0].lon, clusters[0].lat]);
 }
 
 function startCineOutro(){
   hideSpotCard();
   hideDayBanner();
+  hideTopProgress();
+  hideTripIntro();
   setArrivalBubble(null);
   camFollow = false;
   cineMode = 'outro';
@@ -2267,6 +2407,8 @@ function stopAnim(){
   hideSpotCard();
   hideDayBanner();
   hideEndSummary();
+  hideTopProgress();
+  hideTripIntro();
   lastCamPhaseKey = null;
   lastPopPinIdx = null;
   setTimelineCompact(false);
@@ -2463,19 +2605,20 @@ function drawExportFrame(ctx, outW, outH, markerImgs, exportIconImg, visitedSet,
     }
   }
 
-  // Unified spot card (meta always; photo when popup + photoUrl)
-  if (spotCardState){
+  // Unified overlays: top progress bar + bottom photo (popup only)
+  if (topProgressState && !tripIntroVisible){
     const s = Math.min(sx, sy);
-    const hasPhoto = !!spotCardState.photoUrl;
-    const cardW = Math.min(280 * s, outW * 0.55);
-    const pad = 12 * s;
-    const metaH = 72 * s;
-    const photoH = hasPhoto ? Math.min(cardW * 0.72, 150 * s) : 0;
-    const slideCountH = hasPhoto ? 18 * s : 0;
-    const cardH = pad + metaH + (hasPhoto ? photoH + slideCountH + 8 * s : 0) + pad * 0.4;
+    const pad = 10 * s;
+    const name = topProgressState.name || '';
+    ctx.font = `600 ${Math.max(13, 15 * s)}px sans-serif`;
+    const nameW = ctx.measureText(name).width;
+    ctx.font = `700 ${Math.max(10, 11 * s)}px sans-serif`;
+    const orderW = ctx.measureText(topProgressState.order).width;
+    const cardW = Math.min(Math.max(orderW, nameW) + pad * 2, outW * 0.72);
+    const cardH = 48 * s;
     const bx = (outW - cardW) / 2;
-    const by = outH - 56 * sy - cardH;
-    const rr = 14 * s;
+    const by = 14 * sy;
+    const rr = 12 * s;
     ctx.save();
     ctx.beginPath();
     ctx.moveTo(bx + rr, by);
@@ -2490,43 +2633,94 @@ function drawExportFrame(ctx, outW, outH, markerImgs, exportIconImg, visitedSet,
     ctx.font = `700 ${Math.max(10, 11 * s)}px sans-serif`;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
-    ctx.fillText(spotCardState.order, bx + pad, by + pad);
+    ctx.fillText(topProgressState.order, bx + pad, by + pad);
     ctx.fillStyle = '#1a1a1a';
-    ctx.font = `600 ${Math.max(14, 17 * s)}px sans-serif`;
-    ctx.fillText(spotCardState.name, bx + pad, by + pad + 16 * s, cardW - pad * 2);
+    ctx.font = `600 ${Math.max(13, 15 * s)}px sans-serif`;
+    ctx.fillText(name, bx + pad, by + pad + 16 * s, cardW - pad * 2);
+    ctx.restore();
+  }
+
+  if (tripIntroVisible){
+    const s = Math.min(sx, sy);
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    ctx.fillRect(0, 0, outW, outH);
+    const cardW = Math.min(340 * s, outW * 0.88);
+    const cardH = 120 * s;
+    const bx = (outW - cardW) / 2;
+    const by = (outH - cardH) / 2;
+    const rr = 16 * s;
+    ctx.beginPath();
+    ctx.moveTo(bx + rr, by);
+    ctx.arcTo(bx + cardW, by, bx + cardW, by + cardH, rr);
+    ctx.arcTo(bx + cardW, by + cardH, bx, by + cardH, rr);
+    ctx.arcTo(bx, by + cardH, bx, by, rr);
+    ctx.arcTo(bx, by, bx + cardW, by, rr);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(255,255,255,0.95)';
+    ctx.fill();
+    const stay = tripStayLabel();
+    ctx.fillStyle = '#1a1a1a';
+    ctx.font = `700 ${Math.max(18, 22 * s)}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(getTripTitle(), outW / 2, by + 38 * s, cardW - 28 * s);
+    ctx.fillStyle = '#5a6b5e';
+    ctx.font = `700 ${Math.max(12, 14 * s)}px sans-serif`;
+    ctx.fillText(stay.n > 1 ? stay.ko + ' · ' + stay.en : stay.en, outW / 2, by + 68 * s);
     ctx.fillStyle = '#667085';
     ctx.font = `${Math.max(11, 12 * s)}px sans-serif`;
-    ctx.fillText(spotCardState.time + '  ·  사진 ' + spotCardState.photos + '장', bx + pad, by + pad + 40 * s, cardW - pad * 2);
-    if (hasPhoto){
-      const px = bx + pad;
-      const py = by + pad + metaH - 4 * s;
-      const pw = cardW - pad * 2;
-      const ph = photoH;
-      const pr = 10 * s;
-      ctx.save();
-      ctx.beginPath();
-      ctx.moveTo(px + pr, py);
-      ctx.arcTo(px + pw, py, px + pw, py + ph, pr);
-      ctx.arcTo(px + pw, py + ph, px, py + ph, pr);
-      ctx.arcTo(px, py + ph, px, py, pr);
-      ctx.arcTo(px, py, px + pw, py, pr);
-      ctx.closePath();
-      ctx.clip();
-      const img = slideImgMap && slideImgMap.get(spotCardState.photoUrl);
-      if (img) ctx.drawImage(img, px, py, pw, ph);
-      else { ctx.fillStyle = '#e8ebe9'; ctx.fillRect(px, py, pw, ph); }
-      ctx.restore();
-      if (spotCardState.slideTotal != null){
-        ctx.fillStyle = '#667085';
-        ctx.font = `${Math.max(10, 11 * s)}px sans-serif`;
-        ctx.textAlign = 'right';
-        ctx.textBaseline = 'top';
-        ctx.fillText(
-          (spotCardState.slideIndex + 1) + ' / ' + spotCardState.slideTotal,
-          bx + cardW - pad,
-          py + ph + 4 * s
-        );
-      }
+    ctx.fillText(tripDateRangeLabel(), outW / 2, by + 92 * s);
+  }
+
+  // Bottom photo only (popup mode)
+  if (spotCardState && spotCardState.photoUrl){
+    const s = Math.min(sx, sy);
+    const cardW = Math.min(280 * s, outW * 0.55);
+    const pad = 10 * s;
+    const photoH = Math.min(cardW * 0.72, 150 * s);
+    const slideCountH = 18 * s;
+    const cardH = pad + photoH + slideCountH + pad;
+    const bx = (outW - cardW) / 2;
+    const by = outH - 56 * sy - cardH;
+    const rr = 14 * s;
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(bx + rr, by);
+    ctx.arcTo(bx + cardW, by, bx + cardW, by + cardH, rr);
+    ctx.arcTo(bx + cardW, by + cardH, bx, by + cardH, rr);
+    ctx.arcTo(bx, by + cardH, bx, by, rr);
+    ctx.arcTo(bx, by, bx + cardW, by, rr);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(255,255,255,0.94)';
+    ctx.fill();
+    const px = bx + pad;
+    const py = by + pad;
+    const pw = cardW - pad * 2;
+    const ph = photoH;
+    const pr = 10 * s;
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(px + pr, py);
+    ctx.arcTo(px + pw, py, px + pw, py + ph, pr);
+    ctx.arcTo(px + pw, py + ph, px, py + ph, pr);
+    ctx.arcTo(px, py + ph, px, py, pr);
+    ctx.arcTo(px, py, px + pw, py, pr);
+    ctx.closePath();
+    ctx.clip();
+    const img = slideImgMap && slideImgMap.get(spotCardState.photoUrl);
+    if (img) ctx.drawImage(img, px, py, pw, ph);
+    else { ctx.fillStyle = '#e8ebe9'; ctx.fillRect(px, py, pw, ph); }
+    ctx.restore();
+    if (spotCardState.slideTotal != null){
+      ctx.fillStyle = '#667085';
+      ctx.font = `${Math.max(10, 11 * s)}px sans-serif`;
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'top';
+      ctx.fillText(
+        (spotCardState.slideIndex + 1) + ' / ' + spotCardState.slideTotal,
+        bx + cardW - pad,
+        py + ph + 4 * s
+      );
     }
     ctx.restore();
   }
@@ -2539,7 +2733,7 @@ function drawExportFrame(ctx, outW, outH, markerImgs, exportIconImg, visitedSet,
     ctx.textBaseline = 'middle';
     const tw = ctx.measureText(dayBannerText).width;
     const bw = tw + 28 * s, bh = fontPx + 16 * s;
-    const bx = (outW - bw) / 2, by = 18 * sy;
+    const bx = (outW - bw) / 2, by = 64 * sy;
     const rr = bh / 2;
     ctx.beginPath();
     ctx.moveTo(bx + rr, by);
@@ -2653,7 +2847,7 @@ async function recordAndDownload(){
 
   const chrome = [
     $('timeline'), $('btnFitAll'), $('sidebarToggle'), $('detailpanel'),
-    $('spotCard'), $('dayBanner'), $('endSummary'),
+    $('spotCard'), $('dayBanner'), $('endSummary'), $('topProgress'), $('tripIntro'),
     ...document.querySelectorAll('.maplibregl-ctrl')
   ].filter(Boolean);
   chrome.forEach(el => {
@@ -2667,6 +2861,8 @@ async function recordAndDownload(){
     hideSpotCard();
     hideDayBanner();
     hideEndSummary();
+    hideTopProgress();
+    hideTripIntro();
     setArrivalBubble(null);
     setTimelineCompact(true);
 
@@ -2800,6 +2996,8 @@ $('btnReplay').addEventListener('click', () => {
   hideSpotCard();
   hideDayBanner();
   hideEndSummary();
+  hideTopProgress();
+  hideTripIntro();
   camFollow = false;
   camZoom = null; camLon = null; camLat = null;
   lastPopPinIdx = null;
@@ -2812,6 +3010,7 @@ $('tlRange').addEventListener('input', e => {
   cancelPlayIntro();
   cineMode = 'main';
   hideEndSummary();
+  hideTripIntro();
   animElapsed = Number(e.target.value)/1000 * animTotal;
   camFollow = true;
   renderFrame(animElapsed);
@@ -2819,6 +3018,12 @@ $('tlRange').addEventListener('input', e => {
 $('btnFitAll').addEventListener('click', () => {
   if (!clusters.length || isRecording) return;
   fitToClusters();
+});
+$('btnTripTitle').addEventListener('click', () => {
+  if (!clusters.length) return;
+  const val = prompt('여행 제목', getTripTitle());
+  if (val === null) return;
+  setTripTitleCustom(val);
 });
 
 /* ============ Utils ============ */
