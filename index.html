@@ -440,6 +440,7 @@ let camFollow = true;      // auto camera follow during playback; off when user 
 let animElapsed = 0;       // ms
 let animTotal = 0;
 let arrivalBubbleLabel = null; // place title during dwell (also used by export)
+let lastCamPhaseKey = null;    // detect dwell entry for hop-fit snap
 let isPlaying = false;
 let isRecording = false;
 let lastFrameTs = null;
@@ -576,7 +577,20 @@ function hopFitZoom(a, b){
   let z = zoomToFitPoints(a, b, playPadding());
   if (m < NEAR_HOP_M) z = Math.max(z, 14.5);
   else if (m < 2000) z = Math.max(z, 13);
+  else if (m < 15000) z = Math.max(z, 11.5);
+  else if (m < 80000) z = Math.max(z, 9.5);
   return Math.max(CAM_MIN_ZOOM, Math.min(CAM_MAX_ZOOM, z));
+}
+
+/** Jump camera to first hop A→B fit (playback/record start — not whole-trip overview). */
+function jumpToFirstHop(){
+  if (!clusters.length) return;
+  const z = segZoom[0] != null ? segZoom[0] : LAST_DWELL_ZOOM;
+  camLon = clusters[0].lon;
+  camLat = clusters[0].lat;
+  camZoom = z;
+  map.jumpTo({ center: [camLon, camLat], zoom: camZoom });
+  lastCamPhaseKey = null;
 }
 
 function placeTitle(c){
@@ -1332,6 +1346,7 @@ function setupAnimation(){
   camLon = null;
   camLat = null;
   arrivalBubbleLabel = null;
+  lastCamPhaseKey = null;
   // defer camera to fitToClusters / playback; first frame only syncs marker + UI
   camFollow = false;
   if (map.getSource('route-progress')) map.getSource('route-progress').setData(emptyLine());
@@ -1413,28 +1428,40 @@ function renderFrame(elapsed, frameDt){
       targetLat = lat;
     }
 
+    const phaseKey = phase.kind + ':' + (phase.kind === 'dwell' ? phase.clusterIdx : phase.segIdx);
+    const enteredDwell = phase.kind === 'dwell' && phaseKey !== lastCamPhaseKey;
+    lastCamPhaseKey = phaseKey;
+
     if (camZoom == null) camZoom = map.getZoom();
     if (camLon == null){ camLon = targetLon; camLat = targetLat; }
 
-    const dz = targetZoom - camZoom;
-    if (Math.abs(dz) >= CAM_ZOOM_DEADBAND){
-      const rate = dz < 0 ? CAM_ZOOM_OUT_RATE : CAM_ZOOM_IN_RATE;
-      const maxDz = rate * dtSec;
-      if (dz > maxDz) camZoom += maxDz;
-      else if (dz < -maxDz) camZoom -= maxDz;
-      else camZoom += dz * Math.min(1, 3 * dtSec);
+    // On each arrival: snap to that hop's A→B fit so nearby places look close immediately
+    if (enteredDwell){
+      camZoom = targetZoom;
+      camLon = targetLon;
+      camLat = targetLat;
+      map.jumpTo({ center: [camLon, camLat], zoom: camZoom });
+    } else {
+      const dz = targetZoom - camZoom;
+      if (Math.abs(dz) >= CAM_ZOOM_DEADBAND){
+        const rate = dz < 0 ? CAM_ZOOM_OUT_RATE : CAM_ZOOM_IN_RATE;
+        const maxDz = rate * dtSec;
+        if (dz > maxDz) camZoom += maxDz;
+        else if (dz < -maxDz) camZoom -= maxDz;
+        else camZoom += dz * Math.min(1, 3 * dtSec);
+      }
+
+      camLon += (targetLon - camLon) * Math.min(1, CAM_CENTER_BLEND * (dtSec * 60));
+      camLat += (targetLat - camLat) * Math.min(1, CAM_CENTER_BLEND * (dtSec * 60));
+
+      const cur = map.getCenter();
+      const zNow = map.getZoom();
+      const moved =
+        Math.abs(camZoom - zNow) > 0.01 ||
+        Math.abs(camLon - cur.lng) > 1e-7 ||
+        Math.abs(camLat - cur.lat) > 1e-7;
+      if (moved) map.jumpTo({ center:[camLon, camLat], zoom: camZoom });
     }
-
-    camLon += (targetLon - camLon) * Math.min(1, CAM_CENTER_BLEND * (dtSec * 60));
-    camLat += (targetLat - camLat) * Math.min(1, CAM_CENTER_BLEND * (dtSec * 60));
-
-    const cur = map.getCenter();
-    const zNow = map.getZoom();
-    const moved =
-      Math.abs(camZoom - zNow) > 0.01 ||
-      Math.abs(camLon - cur.lng) > 1e-7 ||
-      Math.abs(camLat - cur.lat) > 1e-7;
-    if (moved) map.jumpTo({ center:[camLon, camLat], zoom: camZoom });
   }
 
   const traveled = [];
@@ -1465,11 +1492,13 @@ function stepAnim(ts){
   if (!isPlaying) return;
   if (lastFrameTs == null) lastFrameTs = ts;
   const rawDt = ts - lastFrameTs;
-  const dt = rawDt * Number($('tlSpeed').value);
+  const speed = Number($('tlSpeed').value) || 1;
+  const dt = rawDt * speed;
   lastFrameTs = ts;
   animElapsed += dt;
-  if (animElapsed >= animTotal){ animElapsed = animTotal; renderFrame(animElapsed, rawDt); pauseAnim(); return; }
-  renderFrame(animElapsed, rawDt);
+  // Pass speed-scaled dt so camera ease keeps up with sped-up dwell/travel
+  if (animElapsed >= animTotal){ animElapsed = animTotal; renderFrame(animElapsed, dt); pauseAnim(); return; }
+  renderFrame(animElapsed, dt);
   rafId = requestAnimationFrame(stepAnim);
 }
 function playAnim(){
@@ -1478,11 +1507,7 @@ function playAnim(){
   camFollow = true;
 
   if (animElapsed === 0){
-    jumpToTripOverview();
-    camLon = clusters[0].lon;
-    camLat = clusters[0].lat;
-    camZoom = map.getZoom();
-    map.jumpTo({ center:[camLon, camLat], zoom: camZoom });
+    jumpToFirstHop();
   } else {
     const phase = phaseAtElapsed(animElapsed);
     let pos;
@@ -1493,10 +1518,16 @@ function playAnim(){
       const a = clusters[phase.segIdx], b = clusters[phase.segIdx + 1] || a;
       pos = lerpAlongRoute(a, b, phase.t);
     }
+    const zTarget = phase.kind === 'dwell'
+      ? (phase.clusterIdx >= clusters.length - 1
+          ? LAST_DWELL_ZOOM
+          : (segZoom[phase.clusterIdx] ?? map.getZoom()))
+      : (segZoom[phase.segIdx] ?? map.getZoom());
     camLon = pos.lon;
     camLat = pos.lat;
-    camZoom = map.getZoom();
+    camZoom = zTarget;
     map.jumpTo({ center:[camLon, camLat], zoom: camZoom });
+    lastCamPhaseKey = null;
   }
 
   isPlaying = true; lastFrameTs = null;
@@ -1510,7 +1541,7 @@ function pauseAnim(){
   const playBtn = $('btnPlay');
   if (playBtn) playBtn.textContent = '▶ 미리보기';
 }
-function stopAnim(){ pauseAnim(); animElapsed = 0; setArrivalBubble(null); }
+function stopAnim(){ pauseAnim(); animElapsed = 0; setArrivalBubble(null); lastCamPhaseKey = null; }
 
 function pickRecorderMime(){
   if (typeof MediaRecorder === 'undefined') return null;
@@ -1764,15 +1795,11 @@ async function recordAndDownload(){
 
   try {
     animElapsed = 0;
-    jumpToTripOverview();
-    await waitMapFrame();
-    await waitMapFrame();
-    // Same as preview: start at overview zoom on the first marker, ease into hop fit
+    lastCamPhaseKey = null;
     camFollow = true;
-    camZoom = map.getZoom();
-    camLon = clusters[0].lon;
-    camLat = clusters[0].lat;
-    map.jumpTo({ center:[camLon, camLat], zoom: camZoom });
+    jumpToFirstHop();
+    await waitMapFrame();
+    await waitMapFrame();
     renderFrame(0, 16);
     await waitMapFrame();
     await waitMapFrame();
@@ -1807,8 +1834,9 @@ async function recordAndDownload(){
     badge.textContent = '녹화 중 0%';
 
     while (animElapsed < animTotal && frames++ < maxFrames){
-      animElapsed = Math.min(animTotal, animElapsed + frameDt * speed);
-      renderFrame(animElapsed, frameDt);
+      const animDt = frameDt * speed;
+      animElapsed = Math.min(animTotal, animElapsed + animDt);
+      renderFrame(animElapsed, animDt);
       await waitMapFrame();
       const visited = new Set();
       markers.forEach((m, i) => { if (m._el.classList.contains('visited')) visited.add(i); });
