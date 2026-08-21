@@ -14,7 +14,7 @@
   :root{
     --bg:#12151c; --panel:#1a1e29; --panel2:#212736; --border:#2a3142;
     --text:#e8ebf3; --sub:#8b93a7; --accent:#4d9fff; --accent2:#ff6b6b;
-    --good:#3ecf8e; --route:#3ecf8e;
+    --good:#3ecf8e; --path:#8b93a7; --progress:#3ecf8e;
     --font-body:'IBM Plex Sans','IBM Plex Sans KR',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Malgun Gothic",sans-serif;
     --font-display:'Fraunces','IBM Plex Sans KR',Georgia,serif;
   }
@@ -59,10 +59,10 @@
   .icon-picker{display:flex;gap:6px;flex-wrap:wrap;}
   .icon-picker .icon-btn{width:36px;height:36px;border-radius:9px;background:var(--panel2);
     border:1px solid var(--border);display:flex;align-items:center;justify-content:center;
-    padding:0;color:var(--route, var(--good));}
-  .icon-picker .icon-btn:hover{border-color:var(--route, var(--accent));}
-  .icon-picker .icon-btn.active{border-color:var(--route, var(--accent));
-    background:color-mix(in srgb, var(--route, var(--accent)) 18%, transparent);}
+    padding:0;color:var(--progress, var(--good));}
+  .icon-picker .icon-btn:hover{border-color:var(--progress, var(--accent));}
+  .icon-picker .icon-btn.active{border-color:var(--progress, var(--accent));
+    background:color-mix(in srgb, var(--progress, var(--accent)) 18%, transparent);}
   .icon-picker .icon-btn svg{width:20px;height:20px;display:block;transition:transform .28s ease;}
   .icon-picker .icon-btn:hover svg{transform:translateY(-2px) scale(1.08);}
   .icon-picker .icon-btn[data-icon="airplane"]:hover svg{transform:translate(3px,-3px) scale(.88);}
@@ -156,24 +156,27 @@
      WebGL route line + moving dot during camera-follow playback. */
   .photo-marker{width:46px;height:46px;cursor:pointer;}
   .photo-marker .pin{width:100%;height:100%;border-radius:50%;background-size:cover;
-    background-position:center;background-color:var(--panel2);border:3px solid var(--accent);
-    box-shadow:0 2px 8px rgba(0,0,0,.5);position:relative;transition:transform .15s;}
+    background-position:center;background-color:var(--panel2);border:3px solid var(--sub);
+    box-shadow:0 2px 8px rgba(0,0,0,.5);position:relative;transition:transform .15s, border-color .2s;}
   .photo-marker:hover .pin{transform:scale(1.1);}
-  .photo-marker.active .pin{border-color:var(--accent2);}
+  .photo-marker.visited .pin{border-color:var(--progress, var(--good));}
+  .photo-marker.active .pin{border-color:var(--accent2);box-shadow:0 0 0 2px color-mix(in srgb, var(--accent2) 40%, transparent);}
+  .photo-marker.visited.active .pin{border-color:var(--progress, var(--good));
+    box-shadow:0 0 0 2px color-mix(in srgb, var(--progress, var(--good)) 45%, transparent);}
   .photo-marker .count{position:absolute;bottom:-6px;right:-6px;background:var(--accent2);color:#fff;
     font-size:10px;font-weight:700;border-radius:9px;min-width:18px;text-align:center;padding:1px 4px;
     border:2px solid var(--panel);}
+  .photo-marker.visited .count{background:var(--progress, var(--good));color:#08131f;}
   .moving-marker{position:relative;width:0;height:0;}
   .moving-marker .core{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
-    width:14px;height:14px;border-radius:50%;background:var(--route, var(--good));
-    box-shadow:0 0 0 4px color-mix(in srgb, var(--route, var(--good)) 30%, transparent),
-      0 0 12px color-mix(in srgb, var(--route, var(--good)) 80%, transparent);border:2px solid #fff;}
-  /* badge sits above the exact geo point; tip (::after) points at .core */
+    width:14px;height:14px;border-radius:50%;background:var(--progress, var(--good));
+    box-shadow:0 0 0 4px color-mix(in srgb, var(--progress, var(--good)) 30%, transparent),
+      0 0 12px color-mix(in srgb, var(--progress, var(--good)) 80%, transparent);border:2px solid #fff;}
   .moving-marker .icon-badge{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);
     width:34px;height:34px;border-radius:50%;background:rgba(18,21,28,.72);
-    border:2px solid var(--route, rgba(255,255,255,.35));box-shadow:0 2px 12px rgba(0,0,0,.55);
+    border:2px solid var(--progress, rgba(255,255,255,.35));box-shadow:0 2px 12px rgba(0,0,0,.55);
     display:flex;align-items:center;justify-content:center;line-height:1;
-    pointer-events:none;color:var(--route, #fff);}
+    pointer-events:none;color:var(--progress, #fff);}
   .moving-marker .icon-badge svg{width:18px;height:18px;display:block;}
   .moving-marker .icon-badge::after{content:"";position:absolute;left:50%;top:100%;
     transform:translateX(-50%);border:5px solid transparent;
@@ -197,9 +200,11 @@
   #timeline.show{display:flex;}
   #timeline button{width:34px;height:34px;border-radius:50%;background:var(--accent);color:#08131f;
     font-size:14px;flex-shrink:0;display:flex;align-items:center;justify-content:center;padding:0;}
-  #timeline #btnRecord{width:auto;min-width:34px;padding:0 12px;border-radius:8px;font-size:12px;
-    font-weight:700;gap:4px;}
-  #timeline #btnRecord:disabled{opacity:.7;cursor:wait;}
+  #timeline #btnPlay,#timeline #btnRecord{width:auto;min-width:34px;padding:0 12px;border-radius:8px;
+    font-size:12px;font-weight:700;gap:4px;}
+  #timeline #btnPlay{background:var(--panel2);color:var(--text);border:1px solid var(--border);}
+  #timeline #btnPlay:hover{border-color:var(--accent);}
+  #timeline #btnRecord:disabled,#timeline #btnPlay:disabled{opacity:.7;cursor:wait;}
   #timeline .tl-mid{flex:1;display:flex;flex-direction:column;gap:2px;min-width:0;}
   #timeline input[type=range]{width:100%;accent-color:var(--accent);}
   #timeline .tl-labels{display:flex;justify-content:space-between;font-size:11px;color:var(--sub);
@@ -309,18 +314,14 @@
       <div id="iconPicker" class="icon-picker"></div>
 
       <div class="ctrl-row" style="margin-top:10px;">
-        <span>경로·마커 색</span>
+        <span>전체 경로 색</span>
       </div>
-      <div id="colorPicker" class="color-picker">
-        <button type="button" class="color-btn" data-color="#3ecf8e" style="background:#3ecf8e" title="민트"></button>
-        <button type="button" class="color-btn" data-color="#4d9fff" style="background:#4d9fff" title="블루"></button>
-        <button type="button" class="color-btn" data-color="#ff6b6b" style="background:#ff6b6b" title="코랄"></button>
-        <button type="button" class="color-btn" data-color="#f59e0b" style="background:#f59e0b" title="앰버"></button>
-        <button type="button" class="color-btn" data-color="#a78bfa" style="background:#a78bfa" title="바이올렛"></button>
-        <button type="button" class="color-btn" data-color="#ec4899" style="background:#ec4899" title="핑크"></button>
-        <button type="button" class="color-btn" data-color="#14b8a6" style="background:#14b8a6" title="틸"></button>
-        <input type="color" class="color-custom" id="colorCustom" value="#3ecf8e" title="직접 선택">
+      <div id="pathColorPicker" class="color-picker" data-role="path"></div>
+
+      <div class="ctrl-row" style="margin-top:10px;">
+        <span>지나간 경로·마커 색</span>
       </div>
+      <div id="progressColorPicker" class="color-picker" data-role="progress"></div>
     </div>
 
     <div id="empty">
@@ -352,7 +353,8 @@
     <div id="recordOverlay"><div class="badge" id="recordBadge">녹화 중…</div></div>
 
     <div id="timeline">
-      <button id="btnRecord" title="동선 재생을 동영상으로 저장">📥 동영상</button>
+      <button id="btnPlay" title="미리보기로 동선 재생">▶ 미리보기</button>
+      <button id="btnRecord" title="동선 재생을 동영상으로 저장">📥 저장</button>
       <div class="tl-mid">
         <input type="range" id="tlRange" min="0" max="1000" value="0">
         <div class="tl-labels">
@@ -395,7 +397,8 @@ let activeCluster = null;
 let map = null;
 let movingMarker = null;
 let movingIconType = 'airplane';
-let routeColor = '#3ecf8e';
+let pathColor = '#8b93a7';       // full / upcoming route (dashed)
+let progressColor = '#3ecf8e';   // traveled line + marker icon
 // Lucide paths (same shapes as lucide-animated.com)
 const MARKER_ICON_PATHS = {
   airplane: '<path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/>',
@@ -485,18 +488,17 @@ class ThemeToggleControl {
   onRemove(){ this._container.parentNode.removeChild(this._container); }
 }
 
-/** Line paint: full route (dashed) + progress share the selected route color. */
+/** Line paint: dashed overall path vs solid traveled progress. */
 function routePaint(){
-  const c = routeColor;
   if (mapTheme === 'light'){
     return {
-      full: { 'line-color': c, 'line-width':2.5, 'line-dasharray':[2,2], 'line-opacity':0.45 },
-      progress: { 'line-color': c, 'line-width':4.5, 'line-opacity':1 }
+      full: { 'line-color': pathColor, 'line-width':2.5, 'line-dasharray':[2,2], 'line-opacity':0.75 },
+      progress: { 'line-color': progressColor, 'line-width':4.5, 'line-opacity':1 }
     };
   }
   return {
-    full: { 'line-color': c, 'line-width':2, 'line-dasharray':[2,2], 'line-opacity':0.4 },
-    progress: { 'line-color': c, 'line-width':4, 'line-opacity':0.95 }
+    full: { 'line-color': pathColor, 'line-width':2, 'line-dasharray':[2,2], 'line-opacity':0.55 },
+    progress: { 'line-color': progressColor, 'line-width':4, 'line-opacity':0.95 }
   };
 }
 
@@ -972,13 +974,52 @@ document.querySelectorAll('#scalePicker .scale-btn').forEach(btn => {
   });
 })();
 
-function setRouteColor(hex){
+const COLOR_SWATCHES = [
+  { hex:'#8b93a7', label:'그레이' },
+  { hex:'#3ecf8e', label:'민트' },
+  { hex:'#4d9fff', label:'블루' },
+  { hex:'#ff6b6b', label:'코랄' },
+  { hex:'#f59e0b', label:'앰버' },
+  { hex:'#a78bfa', label:'바이올렛' },
+  { hex:'#ec4899', label:'핑크' },
+  { hex:'#14b8a6', label:'틸' }
+];
+
+function buildColorPicker(containerId, role, current){
+  const box = $(containerId);
+  box.innerHTML = '';
+  COLOR_SWATCHES.forEach(s => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'color-btn' + (s.hex.toLowerCase() === current.toLowerCase() ? ' active' : '');
+    btn.dataset.color = s.hex;
+    btn.title = s.label;
+    btn.style.background = s.hex;
+    btn.addEventListener('click', () => setThemeColor(role, s.hex));
+    box.appendChild(btn);
+  });
+  const custom = document.createElement('input');
+  custom.type = 'color';
+  custom.className = 'color-custom';
+  custom.id = role === 'path' ? 'pathColorCustom' : 'progressColorCustom';
+  custom.value = current;
+  custom.title = '직접 선택';
+  custom.addEventListener('input', e => setThemeColor(role, e.target.value));
+  box.appendChild(custom);
+}
+
+function setThemeColor(role, hex){
   if (!hex) return;
-  routeColor = hex;
-  document.documentElement.style.setProperty('--route', routeColor);
-  $('colorCustom').value = routeColor;
-  document.querySelectorAll('#colorPicker .color-btn').forEach(b => {
-    b.classList.toggle('active', b.dataset.color.toLowerCase() === routeColor.toLowerCase());
+  if (role === 'path') pathColor = hex;
+  else progressColor = hex;
+  document.documentElement.style.setProperty('--path', pathColor);
+  document.documentElement.style.setProperty('--progress', progressColor);
+  const box = $(role === 'path' ? 'pathColorPicker' : 'progressColorPicker');
+  const custom = $(role === 'path' ? 'pathColorCustom' : 'progressColorCustom');
+  if (custom) custom.value = role === 'path' ? pathColor : progressColor;
+  box.querySelectorAll('.color-btn').forEach(b => {
+    const cur = role === 'path' ? pathColor : progressColor;
+    b.classList.toggle('active', b.dataset.color.toLowerCase() === cur.toLowerCase());
   });
   applyMarkerIcon();
   if (map){
@@ -990,11 +1031,10 @@ function setRouteColor(hex){
   }
 }
 
-document.querySelectorAll('#colorPicker .color-btn').forEach(btn => {
-  btn.addEventListener('click', () => setRouteColor(btn.dataset.color));
-});
-$('colorCustom').addEventListener('input', e => setRouteColor(e.target.value));
-setRouteColor(routeColor);
+buildColorPicker('pathColorPicker', 'path', pathColor);
+buildColorPicker('progressColorPicker', 'progress', progressColor);
+setThemeColor('path', pathColor);
+setThemeColor('progress', progressColor);
 
 function applyMarkerIcon(){
   if (!movingMarker) return;
@@ -1324,7 +1364,12 @@ function renderFrame(elapsed, frameDt){
   }
 
   const nearIdx = segT < 0.5 ? segIdx : Math.min(segIdx+1, clusters.length-1);
-  markers.forEach((m,idx) => m._el.classList.toggle('active', idx===nearIdx));
+  // photo border uses progress color only after the traveler has reached that place
+  const reachedIdx = segT >= 0.98 ? Math.min(segIdx + 1, clusters.length - 1) : segIdx;
+  markers.forEach((m, idx) => {
+    m._el.classList.toggle('active', idx === nearIdx);
+    m._el.classList.toggle('visited', idx <= reachedIdx);
+  });
   $('tlPlace').textContent = dayPlaceLabel(clusters[nearIdx]);
   $('tlNow').textContent = fmtDateShort(new Date(a.startTime.getTime() + (b.startTime - a.startTime)*segT));
   $('tlRange').value = Math.round(elapsed/animTotal*1000);
@@ -1344,30 +1389,92 @@ function stepAnim(ts){
 function playAnim(){
   if (clusters.length < 2 || isRecording) return;
   if (animElapsed >= animTotal) animElapsed = 0;
-  // resume follow from current map camera so zoom doesn't snap
-  if (camFollow){
-    camZoom = map.getZoom();
-    const c = map.getCenter();
-    camLon = c.lng;
-    camLat = c.lat;
-  }
+  camFollow = true;
+  camZoom = map.getZoom();
+  const c = map.getCenter();
+  camLon = c.lng;
+  camLat = c.lat;
   isPlaying = true; lastFrameTs = null;
+  $('btnPlay').textContent = '⏸ 일시정지';
   rafId = requestAnimationFrame(stepAnim);
 }
-function pauseAnim(){ isPlaying = false; if (rafId) cancelAnimationFrame(rafId); rafId = null; }
+function pauseAnim(){
+  isPlaying = false;
+  if (rafId) cancelAnimationFrame(rafId);
+  rafId = null;
+  const playBtn = $('btnPlay');
+  if (playBtn) playBtn.textContent = '▶ 미리보기';
+}
 function stopAnim(){ pauseAnim(); animElapsed = 0; }
 
 function pickRecorderMime(){
-  const types = [
-    'video/webm;codecs=vp9',
-    'video/webm;codecs=vp8',
-    'video/webm',
+  if (typeof MediaRecorder === 'undefined') return null;
+  const mp4Types = [
+    'video/mp4;codecs=avc1.42E01E',
+    'video/mp4;codecs=avc1.4D001E',
+    'video/mp4;codecs=avc1',
     'video/mp4'
   ];
-  for (const t of types){
-    if (typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(t)) return t;
+  for (const t of mp4Types){
+    if (MediaRecorder.isTypeSupported(t)) return { mime: t, kind: 'mp4' };
   }
-  return '';
+  const webmTypes = [
+    'video/webm;codecs=vp9',
+    'video/webm;codecs=vp8',
+    'video/webm'
+  ];
+  for (const t of webmTypes){
+    if (MediaRecorder.isTypeSupported(t)) return { mime: t, kind: 'webm' };
+  }
+  return null;
+}
+
+let ffmpegBundle = null;
+async function ensureFFmpeg(onProgress){
+  if (ffmpegBundle) return ffmpegBundle;
+  const [{ FFmpeg }, { toBlobURL, fetchFile }] = await Promise.all([
+    import('https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/+esm'),
+    import('https://cdn.jsdelivr.net/npm/@ffmpeg/util@0.12.1/+esm')
+  ]);
+  const ffmpeg = new FFmpeg();
+  if (onProgress){
+    ffmpeg.on('progress', ({ progress }) => {
+      onProgress(Math.max(0, Math.min(100, Math.round((progress || 0) * 100))));
+    });
+  }
+  const base = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/esm';
+  await ffmpeg.load({
+    coreURL: await toBlobURL(base + '/ffmpeg-core.js', 'text/javascript'),
+    wasmURL: await toBlobURL(base + '/ffmpeg-core.wasm', 'application/wasm')
+  });
+  ffmpegBundle = { ffmpeg, fetchFile };
+  return ffmpegBundle;
+}
+
+/** Always produce a playable video/mp4 Blob (re-encode when needed). */
+async function toMp4Blob(inputBlob, onProgress){
+  if (inputBlob.type.includes('mp4')){
+    return new Blob([inputBlob], { type: 'video/mp4' });
+  }
+  const { ffmpeg, fetchFile } = await ensureFFmpeg(onProgress);
+  const inName = 'input.webm';
+  await ffmpeg.writeFile(inName, await fetchFile(inputBlob));
+  // even dimensions required for yuv420p / H.264
+  await ffmpeg.exec([
+    '-i', inName,
+    '-vf', 'scale=trunc(iw/2)*2:trunc(ih/2)*2',
+    '-c:v', 'libx264',
+    '-pix_fmt', 'yuv420p',
+    '-preset', 'ultrafast',
+    '-crf', '23',
+    '-movflags', '+faststart',
+    '-an',
+    'output.mp4'
+  ]);
+  const data = await ffmpeg.readFile('output.mp4');
+  try { await ffmpeg.deleteFile(inName); } catch (e) { /* ignore */ }
+  try { await ffmpeg.deleteFile('output.mp4'); } catch (e) { /* ignore */ }
+  return new Blob([data.buffer], { type: 'video/mp4' });
 }
 
 function loadImage(url){
@@ -1397,7 +1504,8 @@ function downloadBlob(blob, filename){
   setTimeout(() => URL.revokeObjectURL(url), 8000);
 }
 
-function drawExportFrame(ctx, outW, outH, markerImgs, exportIconImg){
+function drawExportFrame(ctx, outW, outH, markerImgs, exportIconImg, visitedSet){
+  visitedSet = visitedSet || new Set();
   const mapCanvas = map.getCanvas();
   ctx.drawImage(mapCanvas, 0, 0, outW, outH);
   const sx = outW / mapCanvas.clientWidth;
@@ -1418,16 +1526,16 @@ function drawExportFrame(ctx, outW, outH, markerImgs, exportIconImg){
     ctx.restore();
     ctx.beginPath();
     ctx.arc(x, y, r, 0, Math.PI * 2);
-    ctx.strokeStyle = routeColor;
+    ctx.strokeStyle = visitedSet.has(i) ? progressColor : '#8b93a7';
     ctx.lineWidth = 3 * Math.min(sx, sy);
     ctx.stroke();
     if (c.photos.length > 1){
       const br = 9 * Math.min(sx, sy);
       ctx.beginPath();
       ctx.arc(x + r * 0.7, y + r * 0.7, br, 0, Math.PI * 2);
-      ctx.fillStyle = '#ff6b6b';
+      ctx.fillStyle = visitedSet.has(i) ? progressColor : '#ff6b6b';
       ctx.fill();
-      ctx.fillStyle = '#fff';
+      ctx.fillStyle = visitedSet.has(i) ? '#08131f' : '#fff';
       ctx.font = `bold ${11 * Math.min(sx, sy)}px sans-serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
@@ -1442,7 +1550,7 @@ function drawExportFrame(ctx, outW, outH, markerImgs, exportIconImg){
     const core = 7 * Math.min(sx, sy);
     ctx.beginPath();
     ctx.arc(x, y, core, 0, Math.PI * 2);
-    ctx.fillStyle = routeColor;
+    ctx.fillStyle = progressColor;
     ctx.fill();
     ctx.strokeStyle = '#fff';
     ctx.lineWidth = 2 * Math.min(sx, sy);
@@ -1482,11 +1590,12 @@ async function recordAndDownload(){
     alert('이 브라우저는 동영상 저장을 지원하지 않습니다. Chrome 또는 Edge를 사용해 주세요.');
     return;
   }
-  const mime = pickRecorderMime();
-  if (!mime){
+  const picked = pickRecorderMime();
+  if (!picked){
     alert('이 브라우저는 동영상 인코딩을 지원하지 않습니다. Chrome 또는 Edge를 사용해 주세요.');
     return;
   }
+  const { mime, kind } = picked;
 
   isRecording = true;
   pauseAnim();
@@ -1494,9 +1603,11 @@ async function recordAndDownload(){
   if (isMobile()) closeSidebar();
 
   const btn = $('btnRecord');
+  const playBtn = $('btnPlay');
   const badge = $('recordBadge');
   const overlay = $('recordOverlay');
   btn.disabled = true;
+  if (playBtn) playBtn.disabled = true;
   btn.textContent = '준비…';
   overlay.classList.add('show');
   badge.textContent = '녹화 준비 중…';
@@ -1526,7 +1637,7 @@ async function recordAndDownload(){
     const ctx = out.getContext('2d', { alpha: false });
 
     const markerImgs = await Promise.all(clusters.map(c => loadImage(c.rep.url)));
-    const iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="${routeColor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${MARKER_ICON_PATHS[movingIconType] || ''}</svg>`;
+    const iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="${progressColor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${MARKER_ICON_PATHS[movingIconType] || ''}</svg>`;
     const exportIconImg = await loadImage('data:image/svg+xml;charset=utf-8,' + encodeURIComponent(iconSvg));
 
     const fps = 30;
@@ -1552,7 +1663,9 @@ async function recordAndDownload(){
       animElapsed = Math.min(animTotal, animElapsed + frameDt * speed);
       renderFrame(animElapsed, frameDt);
       await waitMapFrame();
-      drawExportFrame(ctx, out.width, out.height, markerImgs, exportIconImg);
+      const visited = new Set();
+      markers.forEach((m, i) => { if (m._el.classList.contains('visited')) visited.add(i); });
+      drawExportFrame(ctx, out.width, out.height, markerImgs, exportIconImg, visited);
       const pct = Math.round((animElapsed / animTotal) * 100);
       btn.textContent = pct + '%';
       badge.textContent = '녹화 중 ' + pct + '%';
@@ -1560,20 +1673,33 @@ async function recordAndDownload(){
     }
 
     // hold last frame briefly
+    const visitedEnd = new Set(clusters.map((_, i) => i));
     for (let i = 0; i < Math.round(fps * 0.7); i++){
-      drawExportFrame(ctx, out.width, out.height, markerImgs, exportIconImg);
+      drawExportFrame(ctx, out.width, out.height, markerImgs, exportIconImg, visitedEnd);
       await new Promise(r => setTimeout(r, frameDt));
     }
 
     if (rec.state !== 'inactive') rec.stop();
     await stopped;
 
-    const ext = mime.includes('mp4') ? 'mp4' : 'webm';
-    const blob = new Blob(chunks, { type: mime });
+    let blob = new Blob(chunks, { type: mime });
     if (!blob.size) throw new Error('empty video');
+
+    if (kind !== 'mp4'){
+      badge.textContent = 'MP4 변환 중…';
+      btn.textContent = '변환…';
+      blob = await toMp4Blob(blob, pct => {
+        badge.textContent = 'MP4 변환 ' + pct + '%';
+        btn.textContent = pct + '%';
+      });
+    } else {
+      blob = new Blob([blob], { type: 'video/mp4' });
+    }
+    if (!blob.size) throw new Error('empty mp4');
+
     const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
-    downloadBlob(blob, `travel-route-${stamp}.${ext}`);
-    badge.textContent = '저장 완료';
+    downloadBlob(blob, `travel-route-${stamp}.mp4`);
+    badge.textContent = 'MP4 저장 완료';
     await new Promise(r => setTimeout(r, 600));
   } catch (err){
     console.error(err);
@@ -1585,12 +1711,18 @@ async function recordAndDownload(){
     });
     overlay.classList.remove('show');
     btn.disabled = false;
-    btn.textContent = '📥 동영상';
+    if (playBtn) playBtn.disabled = false;
+    btn.textContent = '📥 저장';
     isRecording = false;
     camFollow = true;
   }
 }
 
+$('btnPlay').addEventListener('click', () => {
+  if (isRecording) return;
+  if (isPlaying) pauseAnim();
+  else playAnim();
+});
 $('btnRecord').addEventListener('click', () => { recordAndDownload(); });
 $('btnReplay').addEventListener('click', () => {
   if (isRecording) return;
