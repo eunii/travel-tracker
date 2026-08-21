@@ -241,11 +241,22 @@
     transform:translateX(-50%) translateY(16px) scale(.97);z-index:11;min-width:200px;max-width:min(320px,88vw);
     padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.94);color:#1a1a1a;
     box-shadow:0 8px 28px rgba(0,0,0,.22);pointer-events:none;opacity:0;visibility:hidden;
-    transition:opacity .32s ease, transform .32s cubic-bezier(.45,0,.2,1), visibility .32s;}
+    transition:opacity .32s ease, transform .32s cubic-bezier(.45,0,.2,1), visibility .32s, bottom .28s ease;}
   #spotCard.show{opacity:1;visibility:visible;transform:translateX(-50%) translateY(0) scale(1);}
   #spotCard .sc-order{font-size:11px;font-weight:700;letter-spacing:.06em;color:#5a6b5e;margin-bottom:4px;}
   #spotCard .sc-name{font-family:var(--font-display);font-size:17px;font-weight:600;line-height:1.25;}
   #spotCard .sc-meta{margin-top:6px;font-size:12px;color:#667085;display:flex;gap:10px;flex-wrap:wrap;}
+  #spotCard .sc-photo-wrap{display:none;margin-top:10px;}
+  #spotCard.has-photo .sc-photo-wrap{display:block;}
+  #spotCard .sc-photo{width:100%;aspect-ratio:4/3;max-height:150px;border-radius:10px;background-size:cover;
+    background-position:center;background-color:#e8ebe9;transition:opacity .22s ease;}
+  #spotCard .sc-photo.swap{opacity:0;}
+  #spotCard .sc-slide-count{margin-top:6px;font-size:11px;color:#667085;text-align:right;
+    font-variant-numeric:tabular-nums;}
+  #mapwrap:has(#timeline.is-compact) #spotCard{
+    bottom:calc(56px + env(safe-area-inset-bottom));}
+  #mapwrap:has(#timeline.is-compact) #endSummary{
+    padding-bottom:calc(64px + env(safe-area-inset-bottom));}
 
   #dayBanner{position:absolute;top:calc(18px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);
     z-index:11;padding:8px 14px;border-radius:999px;background:rgba(18,21,28,.88);color:#fff;
@@ -265,26 +276,6 @@
   #endSummary .es-l{font-size:10px;color:#667085;letter-spacing:.04em;margin-top:2px;}
   #endSummary .es-note{margin-top:10px;font-size:11px;color:#667085;text-align:center;line-height:1.4;}
 
-  /* Arrival slideshow overlay (popup mode) */
-  #arrivalSlideshow{position:absolute;inset:0;z-index:12;display:flex;align-items:center;
-    justify-content:center;pointer-events:none;padding:calc(56px + env(safe-area-inset-top)) 24px
-    calc(100px + env(safe-area-inset-bottom));opacity:0;visibility:hidden;
-    transition:opacity .28s ease, visibility .28s;}
-  #arrivalSlideshow.show{opacity:1;visibility:visible;}
-  #arrivalSlideshow .as-card{width:min(420px,92%);max-width:100%;background:rgba(18,21,28,.92);
-    border:1px solid var(--border);border-radius:16px;padding:14px 14px 12px;
-    box-shadow:0 16px 40px rgba(0,0,0,.45);backdrop-filter:blur(8px);
-    transform:scale(.92) translateY(12px);transition:transform .32s cubic-bezier(.2,.9,.2,1);}
-  #arrivalSlideshow.show .as-card{transform:scale(1) translateY(0);}
-  #arrivalSlideshow .as-title{font-family:var(--font-display);font-size:16px;font-weight:600;
-    color:var(--text);margin-bottom:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  #arrivalSlideshow .as-photo{width:100%;aspect-ratio:4/3;border-radius:12px;background-size:cover;
-    background-position:center;background-color:var(--panel2);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);
-    transition:opacity .25s ease;}
-  #arrivalSlideshow .as-photo.swap{opacity:0;}
-  #arrivalSlideshow .as-count{margin-top:8px;font-size:12px;color:var(--sub);text-align:right;
-    font-variant-numeric:tabular-nums;}
-
   /* fit-all control (replaces geolocation) */
   #btnFitAll{position:absolute;right:calc(12px + env(safe-area-inset-right));
     bottom:calc(88px + env(safe-area-inset-bottom));z-index:5;width:42px;height:42px;
@@ -299,7 +290,8 @@
     right:calc(12px + env(safe-area-inset-right));bottom:calc(12px + env(safe-area-inset-bottom));
     background:rgba(26,30,41,.96);
     backdrop-filter:blur(6px);border:1px solid var(--border);border-radius:12px;padding:10px 14px;
-    display:none;align-items:center;gap:10px;box-shadow:0 8px 30px rgba(0,0,0,.4);}
+    display:none;align-items:center;gap:10px;box-shadow:0 8px 30px rgba(0,0,0,.4);
+    transition:padding .25s ease, border-radius .25s ease, gap .25s ease;}
   #timeline.show{display:flex;}
   #timeline button{width:34px;height:34px;border-radius:50%;background:var(--accent);color:#08131f;
     font-size:14px;flex-shrink:0;display:flex;align-items:center;justify-content:center;padding:0;}
@@ -314,6 +306,14 @@
     font-variant-numeric:tabular-nums;}
   #timeline select{background:var(--panel2);color:var(--text);border:1px solid var(--border);
     border-radius:6px;font-size:12px;padding:6px 8px;flex-shrink:0;}
+  #timeline.is-compact{padding:6px 10px;gap:8px;border-radius:10px;}
+  #timeline.is-compact #btnRecord,
+  #timeline.is-compact #tlSpeed,
+  #timeline.is-compact #btnReplay,
+  #timeline.is-compact .tl-labels{display:none;}
+  #timeline.is-compact #btnPlay{width:32px;min-width:32px;padding:0;border-radius:8px;font-size:13px;}
+  #timeline.is-compact .tl-mid{gap:0;}
+  #mapwrap:has(#timeline.is-compact) #btnFitAll{bottom:calc(52px + env(safe-area-inset-bottom));}
 
   #recordOverlay{position:absolute;inset:0;z-index:20;display:none;align-items:flex-start;
     justify-content:center;padding-top:calc(16px + env(safe-area-inset-top));
@@ -370,6 +370,8 @@
       width:auto;top:auto;bottom:calc(88px + env(safe-area-inset-bottom));max-height:38vh;}
     #timeline{flex-wrap:wrap;padding:8px 10px;}
     #timeline .tl-mid{order:3;flex-basis:100%;}
+    #timeline.is-compact{flex-wrap:nowrap;padding:6px 10px;}
+    #timeline.is-compact .tl-mid{order:0;flex-basis:auto;}
     #lightbox .lb-nav{width:38px;height:38px;font-size:18px;}
   }
 </style>
@@ -431,10 +433,10 @@
       </div>
       <div id="arrivalModePicker" class="mode-picker">
         <button type="button" class="mode-btn active" data-mode="move">이동만
-          <span class="mode-sub">경로만 따라가기</span>
+          <span class="mode-sub">메타 카드만</span>
         </button>
         <button type="button" class="mode-btn" data-mode="popup">팝업
-          <span class="mode-sub">도착 시 사진 슬라이드</span>
+          <span class="mode-sub">메타 + 사진 슬라이드</span>
         </button>
       </div>
     </div>
@@ -450,20 +452,16 @@
     <button id="sidebarToggle">☰</button>
     <div id="backdrop"></div>
 
-    <div id="arrivalSlideshow" aria-hidden="true">
-      <div class="as-card">
-        <div class="as-title" id="asTitle"></div>
-        <div class="as-photo" id="asPhoto"></div>
-        <div class="as-count" id="asCount"></div>
-      </div>
-    </div>
-
     <div id="spotCard" aria-hidden="true">
       <div class="sc-order" id="scOrder">01 / 01</div>
       <div class="sc-name" id="scName">장소</div>
       <div class="sc-meta">
         <span id="scTime">-</span>
         <span id="scPhotos">사진 0장</span>
+      </div>
+      <div class="sc-photo-wrap" id="scPhotoWrap">
+        <div class="sc-photo" id="scPhoto"></div>
+        <div class="sc-slide-count" id="scSlideCount"></div>
       </div>
     </div>
     <div id="dayBanner" aria-hidden="true"></div>
@@ -585,7 +583,6 @@ let camFollow = true;
 let animElapsed = 0;
 let animTotal = 0;
 let arrivalBubbleLabel = null;
-let arrivalSlideState = null;
 let lastCamPhaseKey = null;
 let lastSlideKey = null;
 let lastPopPinIdx = null;
@@ -600,7 +597,7 @@ let playIntroTimer = null;
 let cineMode = 'idle';      // idle | intro | main | outro
 let cineStage = 0;
 let cineElapsed = 0;
-let spotCardState = null;  // for export
+let spotCardState = null;  // for export: meta + optional photoUrl/slideIndex/slideTotal
 let dayBannerText = null;
 
 const CAM_MIN_ZOOM = 3;
@@ -609,19 +606,19 @@ const CAM_ZOOM_OUT_RATE = 1.6;
 const CAM_ZOOM_IN_RATE = 1.8;
 const CAM_CENTER_BLEND = 0.18;
 const CAM_ZOOM_DEADBAND = 0.04;
-const DWELL_MS = 700;              // arrival hold ~0.5–0.9s
+const DWELL_MS = 700;
 const SLIDE_MS = 650;
 const PHOTO_SLIDE_MAX = 6;
-const INTRO_OVERVIEW_MS = 800;
-const INTRO_ZOOM_MS = 1000;
-const INTRO_HOLD_MS = 550;
-const OUTRO_HOLD_MS = 650;
-const OUTRO_ZOOM_MS = 1250;
+const INTRO_OVERVIEW_MS = 450;
+const INTRO_ZOOM_MS = 600;
+const INTRO_HOLD_MS = 350;
+const OUTRO_HOLD_MS = 400;
+const OUTRO_ZOOM_MS = 750;
 const ARRIVAL_ZOOM_FACTOR = 1.08;
 const NEAR_HOP_KM = 2;
 const LONG_HOP_KM = 80;
-const LONG_HOP_OUT = 0.85;         // mid zoom-out delta levels
-const LEAD_FRAC = 0.10;            // screen fraction toward travel dir
+const LONG_HOP_OUT = 0.85;
+const LEAD_FRAC = 0.10;
 const LS_ARRIVAL_MODE = 'travel-tracker-arrival-mode';
 const LS_PHOTO_FAN_LEGACY = 'travel-tracker-photo-fan';
 
@@ -883,10 +880,34 @@ function setArrivalBubble(text){
 
 function hideSpotCard(){
   spotCardState = null;
+  lastSlideKey = null;
   const el = $('spotCard');
   if (!el) return;
-  el.classList.remove('show');
+  el.classList.remove('show', 'has-photo');
   el.setAttribute('aria-hidden', 'true');
+  const photoEl = $('scPhoto');
+  if (photoEl){
+    photoEl.classList.remove('swap');
+    photoEl.style.backgroundImage = '';
+  }
+}
+
+function clearSpotCardPhoto(){
+  const el = $('spotCard');
+  if (el) el.classList.remove('has-photo');
+  if (spotCardState){
+    spotCardState.photoUrl = null;
+    spotCardState.slideIndex = null;
+    spotCardState.slideTotal = null;
+  }
+  lastSlideKey = null;
+  const photoEl = $('scPhoto');
+  if (photoEl){
+    photoEl.classList.remove('swap');
+    photoEl.style.backgroundImage = '';
+  }
+  const countEl = $('scSlideCount');
+  if (countEl) countEl.textContent = '';
 }
 
 function showSpotCard(cluster, idx){
@@ -895,16 +916,62 @@ function showSpotCard(cluster, idx){
   if (!el) return;
   const order = String(idx + 1).padStart(2, '0') + ' / ' + String(clusters.length).padStart(2, '0');
   const timeStr = fmtDateTime(cluster.startTime);
+  const name = placeTitle(cluster);
   $('scOrder').textContent = order;
-  $('scName').textContent = placeTitle(cluster);
+  $('scName').textContent = name;
   $('scTime').textContent = timeStr;
   $('scPhotos').textContent = '사진 ' + cluster.photos.length + '장';
+  const prevPhoto = spotCardState && spotCardState.idx === idx ? spotCardState.photoUrl : null;
+  const prevSlide = spotCardState && spotCardState.idx === idx ? spotCardState.slideIndex : null;
+  const prevTotal = spotCardState && spotCardState.idx === idx ? spotCardState.slideTotal : null;
   spotCardState = {
-    order, name: placeTitle(cluster), time: timeStr,
-    photos: cluster.photos.length, idx
+    order, name, time: timeStr,
+    photos: cluster.photos.length, idx,
+    photoUrl: prevPhoto, slideIndex: prevSlide, slideTotal: prevTotal
   };
   el.classList.add('show');
   el.setAttribute('aria-hidden', 'false');
+}
+
+function updateSpotCardPhoto(cluster, clusterIdx, dwellT){
+  if (arrivalMode !== 'popup' || !cluster){
+    clearSpotCardPhoto();
+    return;
+  }
+  const photos = slidePhotosForCluster(cluster);
+  if (!photos.length){
+    clearSpotCardPhoto();
+    return;
+  }
+  const slideIdx = Math.min(photos.length - 1, Math.floor(Math.min(0.999, Math.max(0, dwellT)) * photos.length));
+  const photo = photos[slideIdx];
+  const key = clusterIdx + ':' + slideIdx;
+  const el = $('spotCard');
+  const photoEl = $('scPhoto');
+  const countEl = $('scSlideCount');
+  if (!el || !photoEl || !countEl) return;
+
+  el.classList.add('has-photo');
+  countEl.textContent = (slideIdx + 1) + ' / ' + photos.length;
+  if (spotCardState){
+    spotCardState.photoUrl = photo.url;
+    spotCardState.slideIndex = slideIdx;
+    spotCardState.slideTotal = photos.length;
+  }
+
+  if (lastSlideKey === key) return;
+  const prevKey = lastSlideKey;
+  lastSlideKey = key;
+  if (prevKey != null && String(prevKey).split(':')[0] === String(clusterIdx)){
+    photoEl.classList.add('swap');
+    requestAnimationFrame(() => {
+      photoEl.style.backgroundImage = `url(${photo.url})`;
+      photoEl.classList.remove('swap');
+    });
+  } else {
+    photoEl.classList.remove('swap');
+    photoEl.style.backgroundImage = `url(${photo.url})`;
+  }
 }
 
 function hideDayBanner(){
@@ -963,57 +1030,6 @@ function dwellMsForCluster(c){
   if (arrivalMode !== 'popup' || !c) return DWELL_MS;
   const n = Math.max(1, slidePhotosForCluster(c).length);
   return Math.max(DWELL_MS, n * SLIDE_MS);
-}
-
-function hideArrivalSlideshow(){
-  arrivalSlideState = null;
-  lastSlideKey = null;
-  const root = $('arrivalSlideshow');
-  if (!root) return;
-  root.classList.remove('show');
-  root.setAttribute('aria-hidden', 'true');
-}
-
-function syncArrivalSlideshow(cluster, clusterIdx, dwellT){
-  if (arrivalMode !== 'popup' || !cluster){
-    hideArrivalSlideshow();
-    return;
-  }
-  const photos = slidePhotosForCluster(cluster);
-  if (!photos.length){
-    hideArrivalSlideshow();
-    return;
-  }
-  const idx = Math.min(photos.length - 1, Math.floor(Math.min(0.999, Math.max(0, dwellT)) * photos.length));
-  const photo = photos[idx];
-  const key = clusterIdx + ':' + idx;
-  const title = placeTitle(cluster);
-  arrivalSlideState = { title, url: photo.url, index: idx, total: photos.length };
-
-  const root = $('arrivalSlideshow');
-  const titleEl = $('asTitle');
-  const photoEl = $('asPhoto');
-  const countEl = $('asCount');
-  if (!root || !titleEl || !photoEl || !countEl) return;
-
-  root.classList.add('show');
-  root.setAttribute('aria-hidden', 'false');
-  titleEl.textContent = title;
-  countEl.textContent = (idx + 1) + ' / ' + photos.length;
-
-  if (lastSlideKey === key) return;
-  const prevKey = lastSlideKey;
-  lastSlideKey = key;
-  if (prevKey != null && String(prevKey).split(':')[0] === String(clusterIdx)){
-    photoEl.classList.add('swap');
-    requestAnimationFrame(() => {
-      photoEl.style.backgroundImage = `url(${photo.url})`;
-      photoEl.classList.remove('swap');
-    });
-  } else {
-    photoEl.classList.remove('swap');
-    photoEl.style.backgroundImage = `url(${photo.url})`;
-  }
 }
 
 function syncMovingMarkerPlaying(){
@@ -1526,7 +1542,7 @@ setThemeColor('progress', progressColor);
       arrivalMode = mode;
       try { localStorage.setItem(LS_ARRIVAL_MODE, arrivalMode); } catch (e) { /* ignore */ }
       syncBtns();
-      if (arrivalMode === 'move') hideArrivalSlideshow();
+      if (arrivalMode === 'move') clearSpotCardPhoto();
       if (clusters.length >= 2){
         const ratio = animTotal > 0 ? animElapsed / animTotal : 0;
         computeSegments();
@@ -1582,7 +1598,14 @@ function renderPlaceList(){
       const header = document.createElement('div');
       header.className = 'day-header';
       const dayNum = c.day;
-      header.innerHTML = `<span class="day-tag">Day ${dayNum}</span><span class="day-meta">${fmtDateShort(c.startTime)}</span>`;
+      const dayTag = document.createElement('span');
+      dayTag.className = 'day-tag';
+      dayTag.textContent = 'Day ' + dayNum;
+      const dayMeta = document.createElement('span');
+      dayMeta.className = 'day-meta';
+      dayMeta.textContent = fmtDateShort(c.startTime);
+      header.appendChild(dayTag);
+      header.appendChild(dayMeta);
       const dayDel = document.createElement('button');
       dayDel.type = 'button';
       dayDel.className = 'list-del';
@@ -1598,15 +1621,36 @@ function renderPlaceList(){
     const row = document.createElement('div');
     row.className = 'place';
     row.dataset.idx = i;
-    row.innerHTML = `
-      <div class="idx">${i+1}</div>
-      <div class="thumb" style="background-image:url(${c.rep.url})">
-        ${c.photos.length>1 ? `<div class="badge">${c.photos.length}</div>` : ''}
-      </div>
-      <div class="meta">
-        <div class="name">${placeLabel(c)}</div>
-        <div class="time">${fmtDateShort(c.startTime)}${c.endTime>c.startTime ? ' ~ '+fmtDateShort(c.endTime):''}</div>
-      </div>`;
+
+    const idxEl = document.createElement('div');
+    idxEl.className = 'idx';
+    idxEl.textContent = String(i + 1);
+
+    const thumb = document.createElement('div');
+    thumb.className = 'thumb';
+    thumb.style.backgroundImage = `url(${c.rep.url})`;
+    if (c.photos.length > 1){
+      const badge = document.createElement('div');
+      badge.className = 'badge';
+      badge.textContent = String(c.photos.length);
+      thumb.appendChild(badge);
+    }
+
+    const meta = document.createElement('div');
+    meta.className = 'meta';
+    const nameEl = document.createElement('div');
+    nameEl.className = 'name';
+    nameEl.textContent = placeLabel(c);
+    const timeEl = document.createElement('div');
+    timeEl.className = 'time';
+    timeEl.textContent = fmtDateShort(c.startTime) + (c.endTime > c.startTime ? ' ~ ' + fmtDateShort(c.endTime) : '');
+    meta.appendChild(nameEl);
+    meta.appendChild(timeEl);
+
+    row.appendChild(idxEl);
+    row.appendChild(thumb);
+    row.appendChild(meta);
+
     const placeDel = document.createElement('button');
     placeDel.type = 'button';
     placeDel.className = 'list-del';
@@ -1853,7 +1897,6 @@ function setupAnimation(){
   arrivalBubbleLabel = null;
   lastCamPhaseKey = null;
   lastPopPinIdx = null;
-  hideArrivalSlideshow();
   hideSpotCard();
   hideDayBanner();
   hideEndSummary();
@@ -1935,15 +1978,10 @@ function renderFrame(elapsed, frameDt){
     } else if (phase.t > 0.7){
       hideDayBanner();
     }
-    if (arrivalMode === 'popup'){
-      hideSpotCard();
-      setArrivalBubble(null);
-      syncArrivalSlideshow(c, phase.clusterIdx, phase.t);
-    } else {
-      hideArrivalSlideshow();
-      setArrivalBubble(null);
-      showSpotCard(c, phase.clusterIdx);
-    }
+    setArrivalBubble(null);
+    showSpotCard(c, phase.clusterIdx);
+    if (arrivalMode === 'popup') updateSpotCardPhoto(c, phase.clusterIdx, phase.t);
+    else clearSpotCardPhoto();
   } else {
     const segIdx = phase.segIdx;
     a = clusters[segIdx];
@@ -1955,7 +1993,6 @@ function renderFrame(elapsed, frameDt){
     if (eased >= 0.8) nearIdx = Math.min(segIdx + 1, n - 1);
     reachedIdx = eased >= 0.98 ? Math.min(segIdx + 1, n - 1) : segIdx;
     setArrivalBubble(null);
-    hideArrivalSlideshow();
     hideSpotCard();
     hideDayBanner();
   }
@@ -2034,6 +2071,8 @@ function renderIntroFrame(dtSec){
     camLon = c0.lon; camLat = c0.lat; camZoom = arrivalZoom;
     map.jumpTo({ center: [camLon, camLat], zoom: camZoom });
     showSpotCard(c0, 0);
+    if (arrivalMode === 'popup') updateSpotCardPhoto(c0, 0, 0);
+    else clearSpotCardPhoto();
     popPinAt(0);
   }
 }
@@ -2070,7 +2109,6 @@ function startCineIntro(){
 function startCineOutro(){
   hideSpotCard();
   hideDayBanner();
-  hideArrivalSlideshow();
   setArrivalBubble(null);
   camFollow = false;
   cineMode = 'outro';
@@ -2151,16 +2189,23 @@ function cancelPlayIntro(){
   }
 }
 
+function setTimelineCompact(on){
+  const tl = $('timeline');
+  if (!tl) return;
+  tl.classList.toggle('is-compact', !!on);
+}
+
 function playAnim(){
   if (clusters.length < 2 || isRecording) return;
   cancelPlayIntro();
   hideEndSummary();
+  setTimelineCompact(true);
 
   if (cineMode === 'intro' || cineMode === 'outro'){
     isPlaying = true;
     lastFrameTs = null;
     syncMovingMarkerPlaying();
-    $('btnPlay').textContent = '⏸ 일시정지';
+    $('btnPlay').textContent = '⏸';
     rafId = requestAnimationFrame(stepAnim);
     return;
   }
@@ -2172,7 +2217,7 @@ function playAnim(){
     isPlaying = true;
     lastFrameTs = null;
     syncMovingMarkerPlaying();
-    $('btnPlay').textContent = '⏸ 일시정지';
+    $('btnPlay').textContent = '⏸';
     rafId = requestAnimationFrame(stepAnim);
     return;
   }
@@ -2182,7 +2227,7 @@ function playAnim(){
   isPlaying = true;
   lastFrameTs = null;
   syncMovingMarkerPlaying();
-  $('btnPlay').textContent = '⏸ 일시정지';
+  $('btnPlay').textContent = '⏸';
   rafId = requestAnimationFrame(stepAnim);
 }
 
@@ -2192,6 +2237,7 @@ function pauseAnim(){
   if (rafId) cancelAnimationFrame(rafId);
   rafId = null;
   syncMovingMarkerPlaying();
+  if (!isRecording) setTimelineCompact(false);
   const playBtn = $('btnPlay');
   if (playBtn) playBtn.textContent = '▶ 미리보기';
 }
@@ -2201,12 +2247,12 @@ function stopAnim(){
   animElapsed = 0;
   cineMode = 'idle';
   setArrivalBubble(null);
-  hideArrivalSlideshow();
   hideSpotCard();
   hideDayBanner();
   hideEndSummary();
   lastCamPhaseKey = null;
   lastPopPinIdx = null;
+  setTimelineCompact(false);
 }
 
 function pickRecorderMime(){
@@ -2400,14 +2446,18 @@ function drawExportFrame(ctx, outW, outH, markerImgs, exportIconImg, visitedSet,
     }
   }
 
-  // Mini spot card (move mode)
-  if (arrivalMode === 'move' && spotCardState){
+  // Unified spot card (meta always; photo when popup + photoUrl)
+  if (spotCardState){
     const s = Math.min(sx, sy);
+    const hasPhoto = !!spotCardState.photoUrl;
     const cardW = Math.min(280 * s, outW * 0.55);
     const pad = 12 * s;
-    const cardH = 78 * s;
+    const metaH = 72 * s;
+    const photoH = hasPhoto ? Math.min(cardW * 0.72, 150 * s) : 0;
+    const slideCountH = hasPhoto ? 18 * s : 0;
+    const cardH = pad + metaH + (hasPhoto ? photoH + slideCountH + 8 * s : 0) + pad * 0.4;
     const bx = (outW - cardW) / 2;
-    const by = outH - 110 * sy - cardH;
+    const by = outH - 56 * sy - cardH;
     const rr = 14 * s;
     ctx.save();
     ctx.beginPath();
@@ -2430,6 +2480,37 @@ function drawExportFrame(ctx, outW, outH, markerImgs, exportIconImg, visitedSet,
     ctx.fillStyle = '#667085';
     ctx.font = `${Math.max(11, 12 * s)}px sans-serif`;
     ctx.fillText(spotCardState.time + '  ·  사진 ' + spotCardState.photos + '장', bx + pad, by + pad + 40 * s, cardW - pad * 2);
+    if (hasPhoto){
+      const px = bx + pad;
+      const py = by + pad + metaH - 4 * s;
+      const pw = cardW - pad * 2;
+      const ph = photoH;
+      const pr = 10 * s;
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(px + pr, py);
+      ctx.arcTo(px + pw, py, px + pw, py + ph, pr);
+      ctx.arcTo(px + pw, py + ph, px, py + ph, pr);
+      ctx.arcTo(px, py + ph, px, py, pr);
+      ctx.arcTo(px, py, px + pw, py, pr);
+      ctx.closePath();
+      ctx.clip();
+      const img = slideImgMap && slideImgMap.get(spotCardState.photoUrl);
+      if (img) ctx.drawImage(img, px, py, pw, ph);
+      else { ctx.fillStyle = '#e8ebe9'; ctx.fillRect(px, py, pw, ph); }
+      ctx.restore();
+      if (spotCardState.slideTotal != null){
+        ctx.fillStyle = '#667085';
+        ctx.font = `${Math.max(10, 11 * s)}px sans-serif`;
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'top';
+        ctx.fillText(
+          (spotCardState.slideIndex + 1) + ' / ' + spotCardState.slideTotal,
+          bx + cardW - pad,
+          py + ph + 4 * s
+        );
+      }
+    }
     ctx.restore();
   }
 
@@ -2497,72 +2578,6 @@ function drawExportFrame(ctx, outW, outH, markerImgs, exportIconImg, visitedSet,
     ctx.font = `${Math.max(10, 11 * s)}px sans-serif`;
     ctx.fillText('사진 촬영 위치 간 직선거리 기준', outW / 2, by + cardH - 18 * s);
   }
-
-  // Popup slideshow card (screen-centered), matching the live overlay
-  if (arrivalMode === 'popup' && arrivalSlideState && slideImgMap){
-    const img = slideImgMap.get(arrivalSlideState.url);
-    const s = Math.min(sx, sy);
-    const cardW = Math.min(420 * s, outW * 0.72);
-    const pad = 14 * s;
-    const titleH = 28 * s;
-    const countH = 22 * s;
-    const photoH = cardW * 0.75;
-    const cardH = pad + titleH + photoH + countH + pad;
-    const cx = outW / 2;
-    const cy = outH / 2;
-    const bx = cx - cardW / 2;
-    const by = cy - cardH / 2;
-    const rr = 16 * s;
-
-    ctx.save();
-    ctx.beginPath();
-    ctx.moveTo(bx + rr, by);
-    ctx.arcTo(bx + cardW, by, bx + cardW, by + cardH, rr);
-    ctx.arcTo(bx + cardW, by + cardH, bx, by + cardH, rr);
-    ctx.arcTo(bx, by + cardH, bx, by, rr);
-    ctx.arcTo(bx, by, bx + cardW, by, rr);
-    ctx.closePath();
-    ctx.fillStyle = 'rgba(18,21,28,0.92)';
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,0.14)';
-    ctx.lineWidth = 1 * s;
-    ctx.stroke();
-
-    ctx.fillStyle = '#e8eaef';
-    ctx.font = `600 ${Math.max(13, 16 * s)}px sans-serif`;
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(arrivalSlideState.title || '', bx + pad, by + pad + titleH / 2, cardW - pad * 2);
-
-    const px = bx + pad;
-    const py = by + pad + titleH;
-    const pw = cardW - pad * 2;
-    const ph = photoH;
-    const pr = 12 * s;
-    ctx.save();
-    ctx.beginPath();
-    ctx.moveTo(px + pr, py);
-    ctx.arcTo(px + pw, py, px + pw, py + ph, pr);
-    ctx.arcTo(px + pw, py + ph, px, py + ph, pr);
-    ctx.arcTo(px, py + ph, px, py, pr);
-    ctx.arcTo(px, py, px + pw, py, pr);
-    ctx.closePath();
-    ctx.clip();
-    if (img) ctx.drawImage(img, px, py, pw, ph);
-    else { ctx.fillStyle = '#212736'; ctx.fillRect(px, py, pw, ph); }
-    ctx.restore();
-
-    ctx.fillStyle = '#8b93a7';
-    ctx.font = `500 ${Math.max(11, 12 * s)}px sans-serif`;
-    ctx.textAlign = 'right';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(
-      (arrivalSlideState.index + 1) + ' / ' + arrivalSlideState.total,
-      bx + cardW - pad,
-      by + cardH - pad - countH / 2
-    );
-    ctx.restore();
-  }
 }
 
 function jumpToTripOverview(){
@@ -2620,7 +2635,7 @@ async function recordAndDownload(){
   badge.textContent = '녹화 준비 중…';
 
   const chrome = [
-    $('timeline'), $('btnFitAll'), $('sidebarToggle'), $('detailpanel'), $('arrivalSlideshow'),
+    $('timeline'), $('btnFitAll'), $('sidebarToggle'), $('detailpanel'),
     $('spotCard'), $('dayBanner'), $('endSummary'),
     ...document.querySelectorAll('.maplibregl-ctrl')
   ].filter(Boolean);
@@ -2632,11 +2647,11 @@ async function recordAndDownload(){
   try {
     animElapsed = 0;
     lastCamPhaseKey = null;
-    hideArrivalSlideshow();
     hideSpotCard();
     hideDayBanner();
     hideEndSummary();
     setArrivalBubble(null);
+    setTimelineCompact(true);
 
     const mapCanvas = map.getCanvas();
     const out = document.createElement('canvas');
@@ -2746,6 +2761,7 @@ async function recordAndDownload(){
     if (playBtn) playBtn.disabled = false;
     btn.textContent = '📥 저장';
     isRecording = false;
+    setTimelineCompact(false);
     camFollow = true;
     syncMovingMarkerPlaying();
   }
@@ -2763,6 +2779,7 @@ $('btnReplay').addEventListener('click', () => {
   cancelPlayIntro();
   animElapsed = 0;
   cineMode = 'idle';
+  setTimelineCompact(false);
   hideSpotCard();
   hideDayBanner();
   hideEndSummary();
