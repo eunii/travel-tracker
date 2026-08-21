@@ -422,7 +422,8 @@ function iconSvgHtml(name, size){
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`;
 }
 let segDurations = [];     // ms per segment at speed=1
-let segZoom = [];          // target map zoom per segment (fitBounds-based, pre-smoothed)
+let segZoom = [];          // frozen target zoom per segment (no live fitBounds)
+let segCamCenter = [];     // null = follow marker; else {lon,lat} fixed look-at for long hops
 let camZoom = null;        // current eased camera zoom while animating
 let camLon = null;         // eased camera center
 let camLat = null;
@@ -438,9 +439,11 @@ let lightboxIndex = 0;
 
 const CAM_MIN_ZOOM = 3;
 const CAM_MAX_ZOOM = 15;
-const CAM_ZOOM_OUT_RATE = 5.0;    // open quickly when a long hop needs overview
-const CAM_ZOOM_IN_RATE = 2.8;     // ease into local detail
-const CAM_CENTER_BLEND = 0.22;
+const CAM_ZOOM_OUT_RATE = 2.2;    // levels/sec — slow enough to avoid tile thrash
+const CAM_ZOOM_IN_RATE = 1.6;
+const CAM_CENTER_BLEND = 0.18;
+const CAM_ZOOM_DEADBAND = 0.08;   // ignore tiny zoom target chatter
+const CAM_ZOOM_SEG_MAX_DELTA = 1.2; // max adjacent-segment zoom jump after smoothing
 const SHORT_HOP_M = 2000;         // <2km: follow marker at street/neighborhood zoom
 
 const $ = (id) => document.getElementById(id);
@@ -539,7 +542,7 @@ function playPadding(){
   return { top:72, bottom:72, left:72, right:72 };
 }
 
-/** Zoom level that fits both points (clamped). */
+/** Zoom level that fits both points (clamped). Call only when camera is stable (e.g. computeSegments). */
 function zoomToFitPoints(a, b, padding){
   if (!map) return 12;
   padding = padding || playPadding();
@@ -557,30 +560,21 @@ function zoomToFitPoints(a, b, padding){
   return Math.max(CAM_MIN_ZOOM, Math.min(CAM_MAX_ZOOM, z));
 }
 
-/** Camera target for a hop: close-up follow vs overview of both endpoints. */
-function cameraTargetForHop(a, b, markerLon, markerLat){
-  const hopM = haversine(a.lat, a.lon, b.lat, b.lon);
-  const pad = playPadding();
-  if (hopM < SHORT_HOP_M){
-    // 대축척: stay close to the traveler
-    const z = Math.max(zoomToFitPoints(a, b, pad), hopM < 400 ? 15 : 13.5);
-    return { zoom: Math.min(CAM_MAX_ZOOM, z), lon: markerLon, lat: markerLat };
+function smoothAdjacentZooms(raw){
+  if (!raw.length) return raw;
+  const out = raw.slice();
+  const maxD = CAM_ZOOM_SEG_MAX_DELTA;
+  for (let i = 1; i < out.length; i++){
+    const d = out[i] - out[i - 1];
+    if (d > maxD) out[i] = out[i - 1] + maxD;
+    else if (d < -maxD) out[i] = out[i - 1] - maxD;
   }
-  // 소축척: keep both A and B in view for the whole hop
-  try {
-    const bounds = new maplibregl.LngLatBounds([a.lon, a.lat], [b.lon, b.lat]);
-    const cam = map.cameraForBounds(bounds, { padding: pad, maxZoom: CAM_MAX_ZOOM });
-    if (cam && typeof cam.zoom === 'number'){
-      // slight pull toward marker so motion still reads as travel
-      const w = 0.72;
-      return {
-        zoom: Math.max(CAM_MIN_ZOOM, Math.min(CAM_MAX_ZOOM, cam.zoom)),
-        lon: cam.center.lng * w + markerLon * (1 - w),
-        lat: cam.center.lat * w + markerLat * (1 - w)
-      };
-    }
-  } catch (e) { /* fall through */ }
-  return { zoom: zoomToFitPoints(a, b, pad), lon: markerLon, lat: markerLat };
+  for (let i = out.length - 2; i >= 0; i--){
+    const d = out[i] - out[i + 1];
+    if (d > maxD) out[i] = out[i + 1] + maxD;
+    else if (d < -maxD) out[i] = out[i + 1] - maxD;
+  }
+  return out;
 }
 
 function initMap(){
@@ -1259,21 +1253,35 @@ const MAX_SEG_MS = 7000;
 
 function computeSegments(){
   if (clusters.length < 2){
-    segDurations = []; segZoom = []; animTotal = 0;
+    segDurations = []; segZoom = []; segCamCenter = []; animTotal = 0;
     $('timeline').classList.remove('show');
     return false;
   }
   $('timeline').classList.add('show');
   segDurations = [];
-  segZoom = [];
+  const rawZoom = [];
+  segCamCenter = [];
+  const pad = playPadding();
   for (let i = 0; i < clusters.length - 1; i++){
-    const m = haversine(clusters[i].lat, clusters[i].lon, clusters[i+1].lat, clusters[i+1].lon);
+    const a = clusters[i], b = clusters[i + 1];
+    const m = haversine(a.lat, a.lon, b.lat, b.lon);
     const km = m / 1000;
-    // same meters/second feel for every hop (clamped so tiny hops aren't instant)
     segDurations.push(Math.max(MIN_SEG_MS, Math.min(MAX_SEG_MS, km * MS_PER_KM)));
-    segZoom.push(zoomToFitPoints(clusters[i], clusters[i+1], playPadding()));
+
+    let z = zoomToFitPoints(a, b, pad);
+    if (m < SHORT_HOP_M){
+      z = Math.max(z, m < 400 ? 15 : 13.5);
+      z = Math.min(CAM_MAX_ZOOM, z);
+      segCamCenter.push(null); // follow marker
+    } else {
+      z = Math.max(CAM_MIN_ZOOM, Math.min(CAM_MAX_ZOOM, z));
+      // fixed midpoint for the whole hop — no live cameraForBounds
+      segCamCenter.push({ lon: (a.lon + b.lon) / 2, lat: (a.lat + b.lat) / 2 });
+    }
+    rawZoom.push(z);
   }
-  animTotal = segDurations.reduce((a, b) => a + b, 0);
+  segZoom = smoothAdjacentZooms(rawZoom);
+  animTotal = segDurations.reduce((sum, d) => sum + d, 0);
   return true;
 }
 
@@ -1335,26 +1343,42 @@ function renderFrame(elapsed, frameDt){
   if (movingMarker) movingMarker.setLngLat([lon,lat]);
 
   if (camFollow){
-    const target = cameraTargetForHop(a, b, lon, lat);
-    const targetZoom = target.zoom;
-    const targetLon = target.lon;
-    const targetLat = target.lat;
+    const frozenZoom = segZoom[segIdx] ?? segZoom[segZoom.length - 1] ?? map.getZoom();
+    const fixed = segCamCenter[segIdx];
+    let targetZoom = frozenZoom;
+    let targetLon, targetLat;
+    if (fixed){
+      // long hop: mostly fixed midpoint, slight pull toward traveler
+      const w = 0.78;
+      targetLon = fixed.lon * w + lon * (1 - w);
+      targetLat = fixed.lat * w + lat * (1 - w);
+    } else {
+      targetLon = lon;
+      targetLat = lat;
+    }
 
     if (camZoom == null) camZoom = targetZoom;
     if (camLon == null){ camLon = targetLon; camLat = targetLat; }
 
-    // zoom out faster than zoom in so long hops open in time
-    const rate = targetZoom < camZoom ? CAM_ZOOM_OUT_RATE : CAM_ZOOM_IN_RATE;
-    const maxDz = rate * dtSec;
     const dz = targetZoom - camZoom;
-    if (dz > maxDz) camZoom += maxDz;
-    else if (dz < -maxDz) camZoom -= maxDz;
-    else camZoom += dz * Math.min(1, 5 * dtSec);
+    if (Math.abs(dz) >= CAM_ZOOM_DEADBAND){
+      const rate = dz < 0 ? CAM_ZOOM_OUT_RATE : CAM_ZOOM_IN_RATE;
+      const maxDz = rate * dtSec;
+      if (dz > maxDz) camZoom += maxDz;
+      else if (dz < -maxDz) camZoom -= maxDz;
+      else camZoom += dz * Math.min(1, 3 * dtSec);
+    }
 
     camLon += (targetLon - camLon) * Math.min(1, CAM_CENTER_BLEND * (dtSec * 60));
     camLat += (targetLat - camLat) * Math.min(1, CAM_CENTER_BLEND * (dtSec * 60));
 
-    map.jumpTo({ center:[camLon, camLat], zoom: camZoom });
+    const cur = map.getCenter();
+    const zNow = map.getZoom();
+    const moved =
+      Math.abs(camZoom - zNow) > 0.01 ||
+      Math.abs(camLon - cur.lng) > 1e-7 ||
+      Math.abs(camLat - cur.lat) > 1e-7;
+    if (moved) map.jumpTo({ center:[camLon, camLat], zoom: camZoom });
   }
 
   const traveled = clusters.slice(0, segIdx+1).map(c=>[c.lon,c.lat]);
@@ -1390,10 +1414,30 @@ function playAnim(){
   if (clusters.length < 2 || isRecording) return;
   if (animElapsed >= animTotal) animElapsed = 0;
   camFollow = true;
-  camZoom = map.getZoom();
-  const c = map.getCenter();
-  camLon = c.lng;
-  camLat = c.lat;
+  // snap eased camera toward the current segment target so overview→detail doesn't thrash
+  let acc = 0, segIdx = 0;
+  for (let i = 0; i < segDurations.length; i++){
+    if (animElapsed <= acc + segDurations[i] || i === segDurations.length - 1){
+      segIdx = i;
+      break;
+    }
+    acc += segDurations[i];
+  }
+  const a = clusters[segIdx], b = clusters[segIdx + 1] || a;
+  const segT = segDurations[segIdx] > 0
+    ? Math.min(1, Math.max(0, (animElapsed - acc) / segDurations[segIdx]))
+    : 0;
+  const pos = lerpAlongRoute(a, b, segT);
+  const fixed = segCamCenter[segIdx];
+  camZoom = segZoom[segIdx] ?? map.getZoom();
+  if (fixed){
+    camLon = fixed.lon * 0.78 + pos.lon * 0.22;
+    camLat = fixed.lat * 0.78 + pos.lat * 0.22;
+  } else {
+    camLon = pos.lon;
+    camLat = pos.lat;
+  }
+  map.jumpTo({ center:[camLon, camLat], zoom: camZoom });
   isPlaying = true; lastFrameTs = null;
   $('btnPlay').textContent = '⏸ 일시정지';
   rafId = requestAnimationFrame(stepAnim);
