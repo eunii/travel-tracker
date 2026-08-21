@@ -547,7 +547,6 @@ const CAM_ZOOM_RATE_K = 0.55;     // scale rate with remaining |dz|
 const CAM_ZOOM_RATE_CAP = 4;      // max multiplier on base zoom rate
 const CAM_CENTER_BLEND = 0.28;
 const CAM_ZOOM_DEADBAND = 0.08;
-const NEAR_HOP_M = 400;
 const DWELL_MS = 1400;
 const SLIDE_MS = 650;             // per-photo dwell slice in popup mode
 const LAST_DWELL_ZOOM = 14;
@@ -676,7 +675,6 @@ function hopFitCamera(a, b){
   const mid = { lon: (a.lon + b.lon) / 2, lat: (a.lat + b.lat) / 2 };
   const same = Math.abs(a.lat - b.lat) < 1e-7 && Math.abs(a.lon - b.lon) < 1e-7;
   if (same) return { zoom: CAM_MAX_ZOOM, lon: a.lon, lat: a.lat };
-  const m = haversine(a.lat, a.lon, b.lat, b.lon);
   let z = 12;
   let lon = mid.lon, lat = mid.lat;
   const bounds = new maplibregl.LngLatBounds([a.lon, a.lat], [b.lon, b.lat]);
@@ -691,10 +689,6 @@ function hopFitCamera(a, b){
   } catch (e) {
     z = zoomToFitPoints(a, b, pad);
   }
-  if (m < NEAR_HOP_M) z = Math.max(z, 14.5);
-  else if (m < 2000) z = Math.max(z, 13);
-  else if (m < 15000) z = Math.max(z, 11.5);
-  else if (m < 80000) z = Math.max(z, 9.5);
   z = Math.max(CAM_MIN_ZOOM, Math.min(CAM_MAX_ZOOM, z));
   return { zoom: z, lon, lat };
 }
