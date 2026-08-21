@@ -119,15 +119,21 @@
   .place .thumb .badge{position:absolute;bottom:-4px;right:-4px;background:var(--accent);color:#08131f;
     font-size:10px;font-weight:700;border-radius:9px;padding:1px 5px;}
   .place .idx{width:20px;font-size:11px;color:var(--sub);text-align:center;flex-shrink:0;}
-  .place .meta{min-width:0;}
+  .place .meta{min-width:0;flex:1;}
   .place .name{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .place .time{font-size:11px;color:var(--sub);font-variant-numeric:tabular-nums;}
+  .place .list-del,.day-header .list-del{flex-shrink:0;width:28px;height:28px;border-radius:8px;
+    border:1px solid var(--border);background:var(--panel2);color:var(--sub);font-size:13px;
+    display:flex;align-items:center;justify-content:center;padding:0;opacity:.55;}
+  .place:hover .list-del,.day-header:hover .list-del,.place .list-del:focus,.day-header .list-del:focus{opacity:1;}
+  .place .list-del:hover,.day-header .list-del:hover{color:#fff;background:var(--accent2);border-color:var(--accent2);}
 
-  .day-header{position:sticky;top:0;z-index:1;display:flex;align-items:baseline;gap:8px;
+  .day-header{position:sticky;top:0;z-index:1;display:flex;align-items:center;gap:8px;
     padding:10px 8px 6px;background:var(--panel);font-size:11px;color:var(--sub);
     font-variant-numeric:tabular-nums;}
   .day-header .day-tag{font-family:var(--font-display);font-size:13px;font-weight:600;color:var(--text);
     letter-spacing:.2px;}
+  .day-header .day-meta{flex:1;min-width:0;}
   .day-header::after{content:"";position:absolute;left:8px;right:8px;bottom:1px;border-bottom:1px solid var(--border);}
 
   #empty{padding:24px 16px;color:var(--sub);font-size:13px;line-height:1.6;text-align:center;}
@@ -148,11 +154,13 @@
   #detailpanel .dp-title-input{font-family:var(--font-display);font-size:16px;font-weight:600;
     background:var(--panel2);border:1px solid var(--accent);border-radius:6px;color:var(--text);
     padding:2px 6px;width:170px;}
-  #detailpanel .dp-edit{background:none;border:none;color:var(--sub);font-size:12px;padding:2px 4px;
+  #detailpanel .dp-edit,#detailpanel .dp-del{background:none;border:none;color:var(--sub);font-size:12px;padding:2px 4px;
     opacity:.7;}
-  #detailpanel .dp-edit:hover{opacity:1;}
+  #detailpanel .dp-edit:hover,#detailpanel .dp-del:hover{opacity:1;}
+  #detailpanel .dp-del:hover{color:var(--accent2);}
   #detailpanel .dp-sub{font-size:11px;color:var(--sub);margin-top:2px;font-variant-numeric:tabular-nums;}
   #detailpanel .dp-close{background:none;border:none;color:var(--sub);font-size:16px;padding:2px 6px;}
+  #detailpanel .dp-head-actions{display:flex;align-items:center;gap:2px;flex-shrink:0;}
   #detailpanel .dp-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:10px;
     overflow-y:auto;}
   #detailpanel .dp-grid .ph{aspect-ratio:1;border-radius:8px;background-size:cover;background-position:center;
@@ -344,7 +352,7 @@
       <div class="stat"><div class="n" id="statRange" style="font-size:12px;">-</div><div class="l">기간</div></div>
     </div>
 
-    <div id="controls" style="display:none;">
+    <div id="controls">
       <div class="ctrl-row">
         <span>여행 스케일</span>
       </div>
@@ -371,7 +379,7 @@
 
       <div class="ctrl-toggle">
         <label title="도착 말풍선과 함께 그 장소 사진을 펼쳐 보여줍니다">
-          <input type="checkbox" id="optPhotoFan" checked>
+          <input type="checkbox" id="optPhotoFan">
           도착 시 사진 펼치기
         </label>
       </div>
@@ -397,7 +405,10 @@
           </div>
           <div class="dp-sub" id="dpSub"></div>
         </div>
-        <button class="dp-close" id="dpClose">✕</button>
+        <div class="dp-head-actions">
+          <button class="dp-del" id="dpDel" title="이 장소 삭제">🗑️</button>
+          <button class="dp-close" id="dpClose">✕</button>
+        </div>
       </div>
       <div class="dp-grid" id="dpGrid"></div>
     </div>
@@ -493,18 +504,21 @@ let lastFrameTs = null;
 let rafId = null;
 let lightboxPhotos = [];
 let lightboxIndex = 0;
-let showPhotoFan = true;
+let showPhotoFan = false;
+let playIntroTimer = null;
 
 const CAM_MIN_ZOOM = 3;
 const CAM_MAX_ZOOM = 15;
 const CAM_ZOOM_OUT_RATE = 4.5;    // levels/sec — reach hop fit within dwell
 const CAM_ZOOM_IN_RATE = 5.5;
+const CAM_ZOOM_RATE_K = 0.55;     // scale rate with remaining |dz|
+const CAM_ZOOM_RATE_CAP = 4;      // max multiplier on base zoom rate
 const CAM_CENTER_BLEND = 0.28;
 const CAM_ZOOM_DEADBAND = 0.08;
 const NEAR_HOP_M = 400;
 const DWELL_MS = 1400;
 const LAST_DWELL_ZOOM = 14;
-const OVERVIEW_HOLD_MS = 700;     // video intro: hold whole-trip view
+const OVERVIEW_HOLD_MS = 500;     // play/record intro: hold whole-trip view
 const PHOTO_FAN_MAX = 6;
 const LS_PHOTO_FAN = 'travel-tracker-photo-fan';
 
@@ -966,7 +980,6 @@ async function handleFileList(files){
   $('statTotal').textContent = imageFiles.length;
   $('statGeo').textContent = allPhotos.length;
   $('stats').style.display = 'grid';
-  $('controls').style.display = 'block';
   $('empty').style.display = allPhotos.length ? 'none' : 'block';
   if (allPhotos.length === 0){
     $('empty').textContent = 'GPS 정보가 있는 사진을 찾지 못했습니다. (스크린샷/다운로드된 이미지는 보통 GPS가 없습니다)';
@@ -1282,7 +1295,18 @@ function renderPlaceList(){
       lastDay = c.day;
       const header = document.createElement('div');
       header.className = 'day-header';
-      header.innerHTML = `<span class="day-tag">Day ${c.day}</span><span>${fmtDateShort(c.startTime)}</span>`;
+      const dayNum = c.day;
+      header.innerHTML = `<span class="day-tag">Day ${dayNum}</span><span class="day-meta">${fmtDateShort(c.startTime)}</span>`;
+      const dayDel = document.createElement('button');
+      dayDel.type = 'button';
+      dayDel.className = 'list-del';
+      dayDel.title = `Day ${dayNum} 전체 삭제`;
+      dayDel.textContent = '🗑️';
+      dayDel.addEventListener('click', e => {
+        e.stopPropagation();
+        deleteDay(dayNum);
+      });
+      header.appendChild(dayDel);
       list.appendChild(header);
     }
     const row = document.createElement('div');
@@ -1297,6 +1321,16 @@ function renderPlaceList(){
         <div class="name">${placeLabel(c)}</div>
         <div class="time">${fmtDateShort(c.startTime)}${c.endTime>c.startTime ? ' ~ '+fmtDateShort(c.endTime):''}</div>
       </div>`;
+    const placeDel = document.createElement('button');
+    placeDel.type = 'button';
+    placeDel.className = 'list-del';
+    placeDel.title = '이 장소 삭제';
+    placeDel.textContent = '🗑️';
+    placeDel.addEventListener('click', e => {
+      e.stopPropagation();
+      deleteCluster(i);
+    });
+    row.appendChild(placeDel);
     row.addEventListener('click', () => selectCluster(i, true));
     list.appendChild(row);
   });
@@ -1388,37 +1422,71 @@ $('dpEdit').addEventListener('click', () => {
   renderPlaceList();
   selectCluster(activeCluster, false);
 });
+$('dpDel').addEventListener('click', () => {
+  if (activeCluster === null) return;
+  deleteCluster(activeCluster);
+});
 
-/* ============ Delete a photo ============ */
-function deletePhoto(photo, cluster){
-  URL.revokeObjectURL(photo.url);
-  // any other photo still at this place, used to relocate it after the rebuild below
-  const sibling = cluster.photos.find(p => p !== photo);
-  allPhotos = allPhotos.filter(p => p !== photo);
+/* ============ Delete photos / places / days ============ */
+function deletePhotos(photos, opts){
+  opts = opts || {};
+  if (!photos || !photos.length) return;
+  pauseAnim();
+  cancelPlayIntro();
+  if (!opts.keepLightbox) $('lightbox').classList.remove('show');
 
-  $('statTotal').textContent = Math.max(0, Number($('statTotal').textContent) - 1);
+  const removeSet = new Set(photos);
+  const removedCount = photos.length;
+  photos.forEach(p => { try { URL.revokeObjectURL(p.url); } catch (e) { /* ignore */ } });
+  allPhotos = allPhotos.filter(p => !removeSet.has(p));
+
+  $('statTotal').textContent = Math.max(0, Number($('statTotal').textContent) - removedCount);
   $('statGeo').textContent = allPhotos.length;
 
   if (allPhotos.length === 0){
     closeDetail();
+    $('lightbox').classList.remove('show');
     resetState();
     $('stats').style.display = 'none';
-    $('controls').style.display = 'none';
     $('empty').innerHTML = '아직 불러온 사진이 없습니다.<br>왼쪽 위 버튼으로 폴더를 선택해 보세요.';
     $('empty').style.display = 'block';
     return;
   }
 
-  // a full rebuild keeps the visit sequence (and everything derived from it) correct;
-  // buildClusters() carries the place's customName over automatically via photo identity
+  $('empty').style.display = 'none';
   buildClusters(SCALE_PRESETS[travelScale], { fit:false });
+  setupAnimation();
 
-  if (sibling){
-    const idx = clusters.findIndex(c => c.photos.includes(sibling));
+  if (opts.keepSibling){
+    const idx = clusters.findIndex(c => c.photos.includes(opts.keepSibling));
     if (idx !== -1) selectCluster(idx, false);
+    else closeDetail();
   } else {
     closeDetail();
   }
+}
+
+function deletePhoto(photo, cluster){
+  const sibling = cluster && cluster.photos ? cluster.photos.find(p => p !== photo) : null;
+  deletePhotos([photo], { keepSibling: sibling || null });
+}
+
+function deleteCluster(idx){
+  const c = clusters[idx];
+  if (!c) return;
+  const n = c.photos.length;
+  if (!confirm(`이 장소(사진 ${n}장)를 삭제할까요?`)) return;
+  deletePhotos(c.photos.slice());
+}
+
+function deleteDay(dayNum){
+  const dayClusters = clusters.filter(c => c.day === dayNum);
+  if (!dayClusters.length) return;
+  const n = dayClusters.reduce((s, c) => s + c.photos.length, 0);
+  if (!confirm(`Day ${dayNum}의 장소·사진(${n}장)을 모두 삭제할까요?`)) return;
+  const photos = [];
+  dayClusters.forEach(c => c.photos.forEach(p => photos.push(p)));
+  deletePhotos(photos);
 }
 
 /* ============ Lightbox ============ */
@@ -1435,15 +1503,21 @@ function showLightboxImg(){
 $('lbDel').addEventListener('click', () => {
   const p = lightboxPhotos[lightboxIndex];
   if (!p || !confirm('이 사진을 삭제할까요?')) return;
-  const cluster = clusters.find(c => c.photos.includes(p));
-  const wasLast = lightboxPhotos.length === 1;
-  deletePhoto(p, cluster);
-  if (wasLast || !cluster || cluster.photos.length === 0){
+  const sibling = lightboxPhotos.find(x => x !== p) || null;
+  const keepLightbox = !!sibling;
+  deletePhotos([p], { keepSibling: sibling, keepLightbox });
+  if (!sibling){
     $('lightbox').classList.remove('show');
     return;
   }
-  lightboxPhotos = cluster.photos;
-  lightboxIndex = Math.min(lightboxIndex, lightboxPhotos.length - 1);
+  const newCluster = clusters.find(c => c.photos.includes(sibling));
+  if (!newCluster){
+    $('lightbox').classList.remove('show');
+    return;
+  }
+  lightboxPhotos = newCluster.photos;
+  const si = lightboxPhotos.indexOf(sibling);
+  lightboxIndex = si >= 0 ? si : Math.min(lightboxIndex, lightboxPhotos.length - 1);
   showLightboxImg();
 });
 $('lbClose').addEventListener('click', () => $('lightbox').classList.remove('show'));
@@ -1590,16 +1664,19 @@ function renderFrame(elapsed, frameDt){
     if (camLon == null){ camLon = targetLon; camLat = targetLat; }
 
     const dz = targetZoom - camZoom;
-    if (Math.abs(dz) >= CAM_ZOOM_DEADBAND){
-      const rate = dz < 0 ? CAM_ZOOM_OUT_RATE : CAM_ZOOM_IN_RATE;
+    const absDz = Math.abs(dz);
+    const speedMul = Math.min(CAM_ZOOM_RATE_CAP, 1 + CAM_ZOOM_RATE_K * absDz);
+    if (absDz >= CAM_ZOOM_DEADBAND){
+      const rate = (dz < 0 ? CAM_ZOOM_OUT_RATE : CAM_ZOOM_IN_RATE) * speedMul;
       const maxDz = rate * dtSec;
       if (dz > maxDz) camZoom += maxDz;
       else if (dz < -maxDz) camZoom -= maxDz;
-      else camZoom += dz * Math.min(1, 3 * dtSec);
+      else camZoom += dz * Math.min(1, 3 * dtSec * speedMul);
     }
 
-    camLon += (targetLon - camLon) * Math.min(1, CAM_CENTER_BLEND * (dtSec * 60));
-    camLat += (targetLat - camLat) * Math.min(1, CAM_CENTER_BLEND * (dtSec * 60));
+    const centerBlend = Math.min(1, CAM_CENTER_BLEND * speedMul * (dtSec * 60));
+    camLon += (targetLon - camLon) * centerBlend;
+    camLat += (targetLat - camLat) * centerBlend;
 
     const cur = map.getCenter();
     const zNow = map.getZoom();
@@ -1647,39 +1724,60 @@ function stepAnim(ts){
   renderFrame(animElapsed, dt);
   rafId = requestAnimationFrame(stepAnim);
 }
+function cancelPlayIntro(){
+  if (playIntroTimer != null){
+    clearTimeout(playIntroTimer);
+    playIntroTimer = null;
+  }
+}
+
 function playAnim(){
   if (clusters.length < 2 || isRecording) return;
   if (animElapsed >= animTotal) animElapsed = 0;
   camFollow = true;
+  cancelPlayIntro();
 
   if (animElapsed === 0){
-    jumpToFirstHop();
-  } else {
-    const phase = phaseAtElapsed(animElapsed);
-    let targetZoom, targetLon, targetLat;
-    if (phase.kind === 'dwell'){
-      if (phase.clusterIdx >= clusters.length - 1){
-        targetZoom = LAST_DWELL_ZOOM;
-        targetLon = clusters[phase.clusterIdx].lon;
-        targetLat = clusters[phase.clusterIdx].lat;
-      } else {
-        targetZoom = segZoom[phase.clusterIdx] ?? map.getZoom();
-        const sc = segCenter[phase.clusterIdx];
-        targetLon = sc ? sc.lon : clusters[phase.clusterIdx].lon;
-        targetLat = sc ? sc.lat : clusters[phase.clusterIdx].lat;
-      }
-    } else {
-      targetZoom = segZoom[phase.segIdx] ?? map.getZoom();
-      const sc = segCenter[phase.segIdx];
-      targetLon = sc ? sc.lon : clusters[phase.segIdx].lon;
-      targetLat = sc ? sc.lat : clusters[phase.segIdx].lat;
-    }
-    camLon = targetLon;
-    camLat = targetLat;
-    camZoom = targetZoom;
-    map.jumpTo({ center:[camLon, camLat], zoom: camZoom });
-    lastCamPhaseKey = null;
+    jumpToTripOverview();
+    if (movingMarker) movingMarker.setLngLat([clusters[0].lon, clusters[0].lat]);
+    isPlaying = true;
+    lastFrameTs = null;
+    syncMovingMarkerPlaying();
+    $('btnPlay').textContent = '⏸ 일시정지';
+    playIntroTimer = setTimeout(() => {
+      playIntroTimer = null;
+      if (!isPlaying || isRecording) return;
+      jumpToFirstHop();
+      lastFrameTs = null;
+      rafId = requestAnimationFrame(stepAnim);
+    }, OVERVIEW_HOLD_MS);
+    return;
   }
+
+  const phase = phaseAtElapsed(animElapsed);
+  let targetZoom, targetLon, targetLat;
+  if (phase.kind === 'dwell'){
+    if (phase.clusterIdx >= clusters.length - 1){
+      targetZoom = LAST_DWELL_ZOOM;
+      targetLon = clusters[phase.clusterIdx].lon;
+      targetLat = clusters[phase.clusterIdx].lat;
+    } else {
+      targetZoom = segZoom[phase.clusterIdx] ?? map.getZoom();
+      const sc = segCenter[phase.clusterIdx];
+      targetLon = sc ? sc.lon : clusters[phase.clusterIdx].lon;
+      targetLat = sc ? sc.lat : clusters[phase.clusterIdx].lat;
+    }
+  } else {
+    targetZoom = segZoom[phase.segIdx] ?? map.getZoom();
+    const sc = segCenter[phase.segIdx];
+    targetLon = sc ? sc.lon : clusters[phase.segIdx].lon;
+    targetLat = sc ? sc.lat : clusters[phase.segIdx].lat;
+  }
+  camLon = targetLon;
+  camLat = targetLat;
+  camZoom = targetZoom;
+  map.jumpTo({ center:[camLon, camLat], zoom: camZoom });
+  lastCamPhaseKey = null;
 
   isPlaying = true; lastFrameTs = null;
   syncMovingMarkerPlaying();
@@ -1687,6 +1785,7 @@ function playAnim(){
   rafId = requestAnimationFrame(stepAnim);
 }
 function pauseAnim(){
+  cancelPlayIntro();
   isPlaying = false;
   if (rafId) cancelAnimationFrame(rafId);
   rafId = null;
@@ -2127,6 +2226,7 @@ $('btnRecord').addEventListener('click', () => { recordAndDownload(); });
 $('btnReplay').addEventListener('click', () => {
   if (isRecording) return;
   pauseAnim();
+  cancelPlayIntro();
   animElapsed = 0;
   camFollow = true;
   camZoom = null; camLon = null; camLat = null;
@@ -2136,6 +2236,7 @@ $('btnReplay').addEventListener('click', () => {
 $('tlRange').addEventListener('input', e => {
   if (isRecording) return;
   pauseAnim();
+  cancelPlayIntro();
   animElapsed = Number(e.target.value)/1000 * animTotal;
   renderFrame(animElapsed);
 });
