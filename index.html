@@ -884,7 +884,10 @@ function computeTripBaseZoom(){
 }
 
 function hopDurationMs(km){
-  const sec = Math.max(1.2, Math.min(2.5, 1.2 + Math.sqrt(Math.max(0, km)) * 0.35));
+  // Soft sqrt curve for short/medium hops; speed cap so very long hops aren't a blink.
+  const fromSqrt = 1.25 + Math.sqrt(Math.max(0, km)) * 0.42;
+  const fromSpeedCap = km / 70; // at most ~70 km per playback-second
+  const sec = Math.max(1.2, Math.min(5.0, Math.max(fromSqrt, fromSpeedCap)));
   return sec * 1000;
 }
 
