@@ -563,16 +563,13 @@ function zoomToFitPoints(a, b, padding){
 function smoothAdjacentZooms(raw){
   if (!raw.length) return raw;
   const out = raw.slice();
-  const maxD = CAM_ZOOM_SEG_MAX_DELTA;
+  const maxIn = CAM_ZOOM_SEG_MAX_DELTA;
+  // Only clamp sudden zoom-in so street-level doesn't slam after a long hop.
+  // Never pull earlier high zooms down toward later long-hop lows (that made
+  // preview start absurdly zoomed-out).
   for (let i = 1; i < out.length; i++){
     const d = out[i] - out[i - 1];
-    if (d > maxD) out[i] = out[i - 1] + maxD;
-    else if (d < -maxD) out[i] = out[i - 1] - maxD;
-  }
-  for (let i = out.length - 2; i >= 0; i--){
-    const d = out[i] - out[i + 1];
-    if (d > maxD) out[i] = out[i + 1] + maxD;
-    else if (d < -maxD) out[i] = out[i + 1] - maxD;
+    if (d > maxIn) out[i] = out[i - 1] + maxIn;
   }
   return out;
 }
@@ -1414,7 +1411,6 @@ function playAnim(){
   if (clusters.length < 2 || isRecording) return;
   if (animElapsed >= animTotal) animElapsed = 0;
   camFollow = true;
-  // snap eased camera toward the current segment target so overview→detail doesn't thrash
   let acc = 0, segIdx = 0;
   for (let i = 0; i < segDurations.length; i++){
     if (animElapsed <= acc + segDurations[i] || i === segDurations.length - 1){
@@ -1428,14 +1424,17 @@ function playAnim(){
     ? Math.min(1, Math.max(0, (animElapsed - acc) / segDurations[segIdx]))
     : 0;
   const pos = lerpAlongRoute(a, b, segT);
-  const fixed = segCamCenter[segIdx];
-  camZoom = segZoom[segIdx] ?? map.getZoom();
-  if (fixed){
-    camLon = fixed.lon * 0.78 + pos.lon * 0.22;
-    camLat = fixed.lat * 0.78 + pos.lat * 0.22;
+  const targetZ = segZoom[segIdx] ?? map.getZoom();
+  const shortHop = !segCamCenter[segIdx];
+  // Always start on the traveler — don't jump to a wide midpoint
+  camLon = pos.lon;
+  camLat = pos.lat;
+  if (shortHop){
+    // ensure local movement is visible (at least segment target / 13.5)
+    camZoom = Math.max(map.getZoom(), targetZ, 13.5);
   } else {
-    camLon = pos.lon;
-    camLat = pos.lat;
+    // keep current overview; ease out toward long-hop fit during playback
+    camZoom = map.getZoom();
   }
   map.jumpTo({ center:[camLon, camLat], zoom: camZoom });
   isPlaying = true; lastFrameTs = null;
