@@ -181,6 +181,16 @@
   .moving-marker .icon-badge::after{content:"";position:absolute;left:50%;top:100%;
     transform:translateX(-50%);border:5px solid transparent;
     border-top-color:rgba(18,21,28,.72);}
+  .moving-marker .arrival-bubble{position:absolute;left:50%;bottom:48px;transform:translateX(-50%);
+    max-width:200px;padding:6px 10px;border-radius:8px;background:rgba(18,21,28,.88);
+    border:1px solid var(--border);color:var(--text);font-size:12px;font-weight:600;
+    line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    pointer-events:none;box-shadow:0 4px 14px rgba(0,0,0,.35);
+    opacity:0;animation:arrivalBubbleIn .22s ease forwards;}
+  .moving-marker .arrival-bubble::after{content:"";position:absolute;left:50%;top:100%;
+    transform:translateX(-50%);border:6px solid transparent;
+    border-top-color:rgba(18,21,28,.88);}
+  @keyframes arrivalBubbleIn{from{opacity:0;margin-bottom:-4px;}to{opacity:1;margin-bottom:0;}}
 
   /* fit-all control (replaces geolocation) */
   #btnFitAll{position:absolute;right:calc(12px + env(safe-area-inset-right));
@@ -421,14 +431,15 @@ function iconSvgHtml(name, size){
   if (!inner) return '';
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`;
 }
-let segDurations = [];     // ms per segment at speed=1
-let segZoom = [];          // frozen A→B fit zoom per segment (no live fitBounds)
+let segDurations = [];     // ms per travel hop at speed=1
+let segZoom = [];          // frozen A→B fit zoom per hop (set during prior dwell)
 let camZoom = null;        // current eased camera zoom while animating
 let camLon = null;         // eased camera center
 let camLat = null;
 let camFollow = true;      // auto camera follow during playback; off when user pans/zooms
 let animElapsed = 0;       // ms
 let animTotal = 0;
+let arrivalBubbleLabel = null; // place title during dwell (also used by export)
 let isPlaying = false;
 let isRecording = false;
 let lastFrameTs = null;
@@ -438,12 +449,13 @@ let lightboxIndex = 0;
 
 const CAM_MIN_ZOOM = 3;
 const CAM_MAX_ZOOM = 15;
-const CAM_ZOOM_OUT_RATE = 2.4;    // levels/sec — smooth open for long hops
-const CAM_ZOOM_IN_RATE = 1.8;
+const CAM_ZOOM_OUT_RATE = 2.8;    // levels/sec — dwell can open for long hops
+const CAM_ZOOM_IN_RATE = 3.2;     // levels/sec — reach hop fit within dwell
 const CAM_CENTER_BLEND = 0.2;
 const CAM_ZOOM_DEADBAND = 0.08;
-const CAM_ZOOM_SEG_MAX_DELTA = 1.2; // max zoom-in jump between adjacent segments
 const NEAR_HOP_M = 400;             // below this, bump fit zoom toward street detail
+const DWELL_MS = 1400;              // pause at each place (speed multiplier applies)
+const LAST_DWELL_ZOOM = 14;
 
 const $ = (id) => document.getElementById(id);
 
@@ -559,18 +571,62 @@ function zoomToFitPoints(a, b, padding){
   return Math.max(CAM_MIN_ZOOM, Math.min(CAM_MAX_ZOOM, z));
 }
 
-function smoothAdjacentZooms(raw){
-  if (!raw.length) return raw;
-  const out = raw.slice();
-  const maxIn = CAM_ZOOM_SEG_MAX_DELTA;
-  // Only clamp sudden zoom-in so street-level doesn't slam after a long hop.
-  // Never pull earlier high zooms down toward later long-hop lows (that made
-  // preview start absurdly zoomed-out).
-  for (let i = 1; i < out.length; i++){
-    const d = out[i] - out[i - 1];
-    if (d > maxIn) out[i] = out[i - 1] + maxIn;
+function hopFitZoom(a, b){
+  const m = haversine(a.lat, a.lon, b.lat, b.lon);
+  let z = zoomToFitPoints(a, b, playPadding());
+  if (m < NEAR_HOP_M) z = Math.max(z, 14.5);
+  else if (m < 2000) z = Math.max(z, 13);
+  return Math.max(CAM_MIN_ZOOM, Math.min(CAM_MAX_ZOOM, z));
+}
+
+function placeTitle(c){
+  if (!c) return '';
+  const idx = clusters.indexOf(c);
+  return c.customName || c.placeName || `장소 ${idx >= 0 ? idx + 1 : '?'}`;
+}
+
+function setArrivalBubble(text){
+  arrivalBubbleLabel = text || null;
+  if (!movingMarker) return;
+  const el = movingMarker.getElement();
+  let bubble = el.querySelector('.arrival-bubble');
+  if (!text){
+    if (bubble) bubble.remove();
+    return;
   }
-  return out;
+  if (!bubble){
+    bubble = document.createElement('div');
+    bubble.className = 'arrival-bubble';
+    el.appendChild(bubble);
+  }
+  bubble.textContent = text;
+}
+
+/**
+ * Timeline: dwell0 → travel0 → dwell1 → travel1 → … → dwell(n-1)
+ * @returns {{ kind:'dwell'|'travel', clusterIdx:number, segIdx:number, t:number }}
+ */
+function phaseAtElapsed(elapsed){
+  elapsed = Math.max(0, Math.min(animTotal || 0, elapsed));
+  const n = clusters.length;
+  if (n < 2 || !segDurations.length){
+    return { kind: 'dwell', clusterIdx: 0, segIdx: 0, t: 0 };
+  }
+  let acc = 0;
+  for (let i = 0; i < n; i++){
+    if (elapsed < acc + DWELL_MS || i === n - 1){
+      const t = DWELL_MS > 0 ? Math.min(1, Math.max(0, (elapsed - acc) / DWELL_MS)) : 1;
+      return { kind: 'dwell', clusterIdx: i, segIdx: Math.min(i, n - 2), t };
+    }
+    acc += DWELL_MS;
+    const travelMs = segDurations[i] || 0;
+    if (elapsed < acc + travelMs){
+      const t = travelMs > 0 ? Math.min(1, (elapsed - acc) / travelMs) : 1;
+      return { kind: 'travel', clusterIdx: i, segIdx: i, t };
+    }
+    acc += travelMs;
+  }
+  return { kind: 'dwell', clusterIdx: n - 1, segIdx: Math.max(0, n - 2), t: 1 };
 }
 
 function initMap(){
@@ -1029,9 +1085,11 @@ setThemeColor('progress', progressColor);
 function applyMarkerIcon(){
   if (!movingMarker) return;
   const el = movingMarker.getElement();
+  const keep = arrivalBubbleLabel;
   el.className = 'moving-marker';
   const svg = iconSvgHtml(movingIconType, 18);
   el.innerHTML = '<span class="core"></span>' + (svg ? `<span class="icon-badge">${svg}</span>` : '');
+  if (keep) setArrivalBubble(keep);
 }
 
 /* ============ Rendering: markers, list, route ============ */
@@ -1255,23 +1313,15 @@ function computeSegments(){
   }
   $('timeline').classList.add('show');
   segDurations = [];
-  const rawZoom = [];
-  const pad = playPadding();
+  segZoom = [];
   for (let i = 0; i < clusters.length - 1; i++){
     const a = clusters[i], b = clusters[i + 1];
-    const m = haversine(a.lat, a.lon, b.lat, b.lon);
-    const km = m / 1000;
+    const km = haversine(a.lat, a.lon, b.lat, b.lon) / 1000;
     segDurations.push(Math.max(MIN_SEG_MS, Math.min(MAX_SEG_MS, km * MS_PER_KM)));
-
-    // Fit this hop's start→end only (not the whole trip)
-    let z = zoomToFitPoints(a, b, pad);
-    if (m < NEAR_HOP_M) z = Math.max(z, 14.5);
-    else if (m < 2000) z = Math.max(z, 13);
-    z = Math.max(CAM_MIN_ZOOM, Math.min(CAM_MAX_ZOOM, z));
-    rawZoom.push(z);
+    segZoom.push(hopFitZoom(a, b));
   }
-  segZoom = smoothAdjacentZooms(rawZoom);
-  animTotal = segDurations.reduce((sum, d) => sum + d, 0);
+  // dwell at every place + travel between them
+  animTotal = clusters.length * DWELL_MS + segDurations.reduce((sum, d) => sum + d, 0);
   return true;
 }
 
@@ -1281,6 +1331,7 @@ function setupAnimation(){
   camZoom = null;
   camLon = null;
   camLat = null;
+  arrivalBubbleLabel = null;
   // defer camera to fitToClusters / playback; first frame only syncs marker + UI
   camFollow = false;
   if (map.getSource('route-progress')) map.getSource('route-progress').setData(emptyLine());
@@ -1320,23 +1371,47 @@ function lerpAlongRoute(a, b, t){
 function renderFrame(elapsed, frameDt){
   elapsed = Math.max(0, Math.min(animTotal, elapsed));
   const dtSec = Math.max(0, Math.min(0.05, (frameDt || 16) / 1000));
-  let acc = 0, segIdx = 0, segT = 0;
-  for (let i=0;i<segDurations.length;i++){
-    if (elapsed <= acc + segDurations[i] || i === segDurations.length-1){
-      segIdx = i; segT = segDurations[i] > 0 ? Math.min(1,(elapsed-acc)/segDurations[i]) : 1;
-      break;
-    }
-    acc += segDurations[i];
+  const phase = phaseAtElapsed(elapsed);
+  const n = clusters.length;
+  let lat, lon, nearIdx, reachedIdx, a, b, segT;
+
+  if (phase.kind === 'dwell'){
+    const c = clusters[phase.clusterIdx];
+    lat = c.lat; lon = c.lon;
+    nearIdx = phase.clusterIdx;
+    reachedIdx = phase.clusterIdx;
+    a = c;
+    b = clusters[Math.min(phase.clusterIdx + 1, n - 1)] || c;
+    segT = phase.clusterIdx >= n - 1 ? 1 : 0;
+    setArrivalBubble(placeTitle(c));
+  } else {
+    const segIdx = phase.segIdx;
+    a = clusters[segIdx];
+    b = clusters[segIdx + 1] || a;
+    segT = phase.t;
+    ({ lat, lon } = lerpAlongRoute(a, b, segT));
+    nearIdx = segT < 0.5 ? segIdx : Math.min(segIdx + 1, n - 1);
+    reachedIdx = segT >= 0.98 ? Math.min(segIdx + 1, n - 1) : segIdx;
+    setArrivalBubble(null);
   }
-  const a = clusters[segIdx], b = clusters[segIdx+1] || a;
-  const { lat, lon } = lerpAlongRoute(a, b, segT);
-  if (movingMarker) movingMarker.setLngLat([lon,lat]);
+
+  if (movingMarker) movingMarker.setLngLat([lon, lat]);
 
   if (camFollow){
-    // Target = precomputed A→B fit for this hop; center follows the traveler
-    const targetZoom = segZoom[segIdx] ?? segZoom[segZoom.length - 1] ?? map.getZoom();
-    const targetLon = lon;
-    const targetLat = lat;
+    let targetZoom, targetLon, targetLat;
+    if (phase.kind === 'dwell'){
+      targetLon = lon;
+      targetLat = lat;
+      if (phase.clusterIdx >= n - 1){
+        targetZoom = LAST_DWELL_ZOOM;
+      } else {
+        targetZoom = segZoom[phase.clusterIdx] ?? LAST_DWELL_ZOOM;
+      }
+    } else {
+      targetZoom = segZoom[phase.segIdx] ?? map.getZoom();
+      targetLon = lon;
+      targetLat = lat;
+    }
 
     if (camZoom == null) camZoom = map.getZoom();
     if (camLon == null){ camLon = targetLon; camLat = targetLat; }
@@ -1362,22 +1437,28 @@ function renderFrame(elapsed, frameDt){
     if (moved) map.jumpTo({ center:[camLon, camLat], zoom: camZoom });
   }
 
-  const traveled = clusters.slice(0, segIdx+1).map(c=>[c.lon,c.lat]);
-  traveled.push([lon,lat]);
+  const traveled = [];
+  if (phase.kind === 'dwell'){
+    for (let i = 0; i <= phase.clusterIdx; i++) traveled.push([clusters[i].lon, clusters[i].lat]);
+  } else {
+    for (let i = 0; i <= phase.segIdx; i++) traveled.push([clusters[i].lon, clusters[i].lat]);
+    traveled.push([lon, lat]);
+  }
   if (map.getSource('route-progress')) {
     map.getSource('route-progress').setData({ type:'Feature', geometry:{type:'LineString',coordinates:traveled}, properties:{} });
   }
 
-  const nearIdx = segT < 0.5 ? segIdx : Math.min(segIdx+1, clusters.length-1);
-  // photo border uses progress color only after the traveler has reached that place
-  const reachedIdx = segT >= 0.98 ? Math.min(segIdx + 1, clusters.length - 1) : segIdx;
   markers.forEach((m, idx) => {
     m._el.classList.toggle('active', idx === nearIdx);
     m._el.classList.toggle('visited', idx <= reachedIdx);
   });
   $('tlPlace').textContent = dayPlaceLabel(clusters[nearIdx]);
-  $('tlNow').textContent = fmtDateShort(new Date(a.startTime.getTime() + (b.startTime - a.startTime)*segT));
-  $('tlRange').value = Math.round(elapsed/animTotal*1000);
+  if (phase.kind === 'dwell'){
+    $('tlNow').textContent = fmtDateShort(clusters[phase.clusterIdx].startTime);
+  } else {
+    $('tlNow').textContent = fmtDateShort(new Date(a.startTime.getTime() + (b.startTime - a.startTime) * segT));
+  }
+  $('tlRange').value = animTotal > 0 ? Math.round(elapsed / animTotal * 1000) : 0;
 }
 
 function stepAnim(ts){
@@ -1395,24 +1476,29 @@ function playAnim(){
   if (clusters.length < 2 || isRecording) return;
   if (animElapsed >= animTotal) animElapsed = 0;
   camFollow = true;
-  let acc = 0, segIdx = 0;
-  for (let i = 0; i < segDurations.length; i++){
-    if (animElapsed <= acc + segDurations[i] || i === segDurations.length - 1){
-      segIdx = i;
-      break;
+
+  if (animElapsed === 0){
+    jumpToTripOverview();
+    camLon = clusters[0].lon;
+    camLat = clusters[0].lat;
+    camZoom = map.getZoom();
+    map.jumpTo({ center:[camLon, camLat], zoom: camZoom });
+  } else {
+    const phase = phaseAtElapsed(animElapsed);
+    let pos;
+    if (phase.kind === 'dwell'){
+      const c = clusters[phase.clusterIdx];
+      pos = { lon: c.lon, lat: c.lat };
+    } else {
+      const a = clusters[phase.segIdx], b = clusters[phase.segIdx + 1] || a;
+      pos = lerpAlongRoute(a, b, phase.t);
     }
-    acc += segDurations[i];
+    camLon = pos.lon;
+    camLat = pos.lat;
+    camZoom = map.getZoom();
+    map.jumpTo({ center:[camLon, camLat], zoom: camZoom });
   }
-  const a = clusters[segIdx], b = clusters[segIdx + 1] || a;
-  const segT = segDurations[segIdx] > 0
-    ? Math.min(1, Math.max(0, (animElapsed - acc) / segDurations[segIdx]))
-    : 0;
-  const pos = lerpAlongRoute(a, b, segT);
-  // Start from current overview zoom at the marker; ease toward this hop's A→B fit
-  camLon = pos.lon;
-  camLat = pos.lat;
-  camZoom = map.getZoom();
-  map.jumpTo({ center:[camLon, camLat], zoom: camZoom });
+
   isPlaying = true; lastFrameTs = null;
   $('btnPlay').textContent = '⏸ 일시정지';
   rafId = requestAnimationFrame(stepAnim);
@@ -1424,7 +1510,7 @@ function pauseAnim(){
   const playBtn = $('btnPlay');
   if (playBtn) playBtn.textContent = '▶ 미리보기';
 }
-function stopAnim(){ pauseAnim(); animElapsed = 0; }
+function stopAnim(){ pauseAnim(); animElapsed = 0; setArrivalBubble(null); }
 
 function pickRecorderMime(){
   if (typeof MediaRecorder === 'undefined') return null;
@@ -1577,6 +1663,42 @@ function drawExportFrame(ctx, outW, outH, markerImgs, exportIconImg, visitedSet)
     if (exportIconImg){
       const iw = 20 * Math.min(sx, sy);
       ctx.drawImage(exportIconImg, x - iw / 2, y - core - iw - 2 * sy, iw, iw);
+    }
+    if (arrivalBubbleLabel){
+      const s = Math.min(sx, sy);
+      const fontPx = Math.max(11, 12 * s);
+      ctx.font = `600 ${fontPx}px sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      const padX = 10 * s, padY = 6 * s;
+      const textW = ctx.measureText(arrivalBubbleLabel).width;
+      const bw = Math.min(200 * s, textW + padX * 2);
+      const bh = fontPx + padY * 2;
+      const bx = x - bw / 2;
+      const by = y - core - (exportIconImg ? 24 * s : 8 * s) - bh - 8 * s;
+      const r = 8 * s;
+      ctx.beginPath();
+      ctx.moveTo(bx + r, by);
+      ctx.arcTo(bx + bw, by, bx + bw, by + bh, r);
+      ctx.arcTo(bx + bw, by + bh, bx, by + bh, r);
+      ctx.arcTo(bx, by + bh, bx, by, r);
+      ctx.arcTo(bx, by, bx + bw, by, r);
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(18,21,28,0.88)';
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+      ctx.lineWidth = 1 * s;
+      ctx.stroke();
+      // tail
+      ctx.beginPath();
+      ctx.moveTo(x - 6 * s, by + bh);
+      ctx.lineTo(x, by + bh + 6 * s);
+      ctx.lineTo(x + 6 * s, by + bh);
+      ctx.closePath();
+      ctx.fillStyle = 'rgba(18,21,28,0.88)';
+      ctx.fill();
+      ctx.fillStyle = '#e8eaef';
+      ctx.fillText(arrivalBubbleLabel, x, by + bh / 2, bw - padX * 2);
     }
   }
 }
