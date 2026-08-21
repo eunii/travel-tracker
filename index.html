@@ -379,7 +379,7 @@
 <body>
 <div id="app">
   <div id="sidebar">
-    <h1>📍 사진 동선 지도 <button id="sidebarClose">✕</button></h1>
+    <h1>📍 여행 트레커 <button id="sidebarClose">✕</button></h1>
     <div class="hint">폴더를 선택하면 안의 모든 사진(하위 폴더 포함)을 읽어 GPS/촬영시각을 추출합니다. 사진은 서버로 전송되지 않고 브라우저 안에서만 처리됩니다.</div>
     <div class="ios-hint" id="iosHint">📱 iPhone은 "폴더 선택"이 지원되지 않습니다. 아래 <b>🖼️ 사진 여러 장 선택</b> 버튼으로 갤러리에서 사진을 여러 장 골라주세요.</div>
 
@@ -570,7 +570,9 @@ let segDurations = [];     // ms per travel hop at speed=1
 let segDwells = [];        // ms per place dwell (arrival hold)
 let segKm = [];            // hop distance km
 let segLong = [];          // long-hop flag for mid zoom-out
-let segNear = [];          // near hop: no arrival zoom boost
+let segNear = [];          // near hop (km): soft lead / arrival hints
+let segHopZoom = [];       // hopFit zoom per hop
+let segTight = [];         // hopFit needs more zoom than baseZoom
 let baseZoom = 10;         // trip-wide cruise zoom
 let arrivalZoom = 11;      // base * 1.08
 let overviewZoom = 6;
@@ -619,6 +621,7 @@ const NEAR_HOP_KM = 2;
 const LONG_HOP_KM = 80;
 const LONG_HOP_OUT = 0.85;
 const LEAD_FRAC = 0.10;
+const TIGHT_HOP_DELTA = 0.35; // hopFit > baseZoom + this → brief zoom-in
 const LS_ARRIVAL_MODE = 'travel-tracker-arrival-mode';
 const LS_PHOTO_FAN_LEGACY = 'travel-tracker-photo-fan';
 
@@ -1865,7 +1868,8 @@ document.addEventListener('keydown', e => {
 
 function computeSegments(){
   if (clusters.length < 2){
-    segDurations = []; segDwells = []; segKm = []; segLong = []; segNear = []; animTotal = 0;
+    segDurations = []; segDwells = []; segKm = []; segLong = []; segNear = [];
+    segHopZoom = []; segTight = []; animTotal = 0;
     $('timeline').classList.remove('show');
     return false;
   }
@@ -1875,13 +1879,18 @@ function computeSegments(){
   segKm = [];
   segLong = [];
   segNear = [];
+  segHopZoom = [];
+  segTight = [];
   segDwells = clusters.map(c => dwellMsForCluster(c));
   for (let i = 0; i < clusters.length - 1; i++){
     const a = clusters[i], b = clusters[i + 1];
     const km = haversine(a.lat, a.lon, b.lat, b.lon) / 1000;
+    const fitZ = hopFitCamera(a, b).zoom;
     segKm.push(km);
     segNear.push(km < NEAR_HOP_KM);
     segLong.push(km >= LONG_HOP_KM);
+    segHopZoom.push(fitZ);
+    segTight.push(fitZ > baseZoom + TIGHT_HOP_DELTA);
     segDurations.push(hopDurationMs(km));
   }
   animTotal = segDwells.reduce((sum, d) => sum + d, 0) + segDurations.reduce((sum, d) => sum + d, 0);
@@ -2006,15 +2015,23 @@ function renderFrame(elapsed, frameDt){
     let lead = 0;
 
     if (phase.kind === 'dwell'){
-      const near = phase.clusterIdx > 0 ? segNear[phase.clusterIdx - 1] : segNear[0];
-      targetZoom = near ? baseZoom : arrivalZoom;
+      // Arrived via hop (idx-1): keep tight hopFit zoom; else normal arrival boost
+      const inHop = phase.clusterIdx > 0 ? phase.clusterIdx - 1 : null;
+      if (inHop != null && segTight[inHop]){
+        targetZoom = Math.max(baseZoom, Math.min(CAM_MAX_ZOOM, segHopZoom[inHop]));
+      } else {
+        const near = inHop != null ? segNear[inHop] : (segNear[0] || false);
+        targetZoom = near ? baseZoom : arrivalZoom;
+      }
       lead = 0;
     } else {
-      const long = segLong[phase.segIdx];
-      const near = segNear[phase.segIdx];
+      const segIdx = phase.segIdx;
+      const long = segLong[segIdx];
+      const tight = segTight[segIdx];
       lead = 1;
-      if (near){
-        targetZoom = baseZoom;
+      if (tight){
+        targetZoom = Math.max(baseZoom, Math.min(CAM_MAX_ZOOM, segHopZoom[segIdx]));
+        if (segT >= 0.8) lead = Math.max(0, 1 - (segT - 0.8) / 0.2);
       } else if (segT >= 0.8){
         targetZoom = arrivalZoom;
         lead = Math.max(0, 1 - (segT - 0.8) / 0.2);
