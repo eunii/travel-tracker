@@ -412,7 +412,9 @@ class ThemeToggleControl {
     this._btn.addEventListener('click', () => {
       mapTheme = mapTheme === 'dark' ? 'light' : 'dark';
       this._btn.textContent = mapTheme === 'dark' ? '☀️' : '🌙';
-      map.setStyle(buildMapStyle(mapTheme));
+      // full replace so custom route sources/layers are cleared cleanly, then
+      // restored from the style.load → restoreRouteAfterStyle handler
+      map.setStyle(buildMapStyle(mapTheme), { diff: false });
     });
     this._container.appendChild(this._btn);
     return this._container;
@@ -420,21 +422,45 @@ class ThemeToggleControl {
   onRemove(){ this._container.parentNode.removeChild(this._container); }
 }
 
+/** Line paint tuned per basemap so routes stay visible on light tiles. */
+function routePaint(){
+  if (mapTheme === 'light'){
+    return {
+      full: { 'line-color':'#1565c0', 'line-width':2.5, 'line-dasharray':[2,2], 'line-opacity':0.9 },
+      progress: { 'line-color':'#2e7d32', 'line-width':4.5, 'line-opacity':1 }
+    };
+  }
+  return {
+    full: { 'line-color':'#4d9fff', 'line-width':2, 'line-dasharray':[2,2], 'line-opacity':0.5 },
+    progress: { 'line-color':'#3ecf8e', 'line-width':4, 'line-opacity':0.9 }
+  };
+}
+
+function ensureRouteLayer(id, sourceId, paint){
+  if (!map.getSource(sourceId)){
+    map.addSource(sourceId, { type:'geojson', data: emptyLine() });
+  }
+  if (!map.getLayer(id)){
+    map.addLayer({ id, type:'line', source: sourceId, paint });
+  } else {
+    for (const [key, val] of Object.entries(paint)){
+      try { map.setPaintProperty(id, key, val); } catch (e) { /* ignore */ }
+    }
+  }
+}
+
 function setupRouteLayers(){
-  if (!map.getSource('route-full')){
-    map.addSource('route-full', { type:'geojson', data: emptyLine() });
-    map.addLayer({
-      id:'route-full-line', type:'line', source:'route-full',
-      paint:{ 'line-color':'#4d9fff', 'line-width':2, 'line-dasharray':[2,2], 'line-opacity':0.5 }
-    });
-  }
-  if (!map.getSource('route-progress')){
-    map.addSource('route-progress', { type:'geojson', data: emptyLine() });
-    map.addLayer({
-      id:'route-progress-line', type:'line', source:'route-progress',
-      paint:{ 'line-color':'#3ecf8e', 'line-width':4, 'line-opacity':0.9 }
-    });
-  }
+  const paint = routePaint();
+  ensureRouteLayer('route-full-line', 'route-full', paint.full);
+  ensureRouteLayer('route-progress-line', 'route-progress', paint.progress);
+}
+
+/** Re-attach GeoJSON route after setStyle wipes custom sources/layers. */
+function restoreRouteAfterStyle(){
+  setupRouteLayers();
+  if (!clusters.length) return;
+  renderRoute();
+  if (animTotal > 0) renderFrame(animElapsed);
 }
 
 function mapPadding(){
@@ -455,13 +481,8 @@ function initMap(){
   map.addControl(new maplibregl.AttributionControl({compact:true}), 'top-right');
 
   map.on('load', setupRouteLayers);
-  map.on('style.load', () => {
-    setupRouteLayers();
-    if (clusters.length){
-      renderRoute();
-      if (animTotal > 0) renderFrame(animElapsed);
-    }
-  });
+  // setStyle removes custom sources/layers; restore route data on every style load
+  map.on('style.load', restoreRouteAfterStyle);
 
   // user pan/zoom interrupts auto camera follow (playback continues)
   const stopFollow = () => { if (camFollow) camFollow = false; };
