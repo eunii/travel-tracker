@@ -65,13 +65,27 @@
     background:color-mix(in srgb, var(--progress, var(--accent)) 18%, transparent);}
   .icon-picker .icon-btn svg{width:20px;height:20px;display:block;transition:transform .28s ease;}
   .icon-picker .icon-btn:hover svg{transform:translateY(-2px) scale(1.08);}
-  .icon-picker .icon-btn[data-icon="airplane"]:hover svg{transform:translate(3px,-3px) scale(.88);}
-  .icon-picker .icon-btn[data-icon="heart"]:hover svg{animation:icon-pulse .45s ease;}
-  .icon-picker .icon-btn[data-icon="moon"]:hover svg{transform:rotate(-20deg) scale(1.05);}
-  .icon-picker .icon-btn[data-icon="rabbit"]:hover svg{transform:translateY(-3px);}
-  .icon-picker .icon-btn[data-icon="ship"]:hover svg{transform:translateX(2px);}
-  .icon-picker .icon-btn[data-icon="truck"]:hover svg{transform:translateX(3px);}
-  @keyframes icon-pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.18)}}
+  .icon-picker .icon-btn[data-icon="airplane"]:hover svg{animation:pick-fly .7s ease-in-out infinite;}
+  .icon-picker .icon-btn[data-icon="heart"]:hover svg{animation:icon-pulse .45s ease infinite;}
+  .icon-picker .icon-btn[data-icon="moon"]:hover svg{animation:pick-tilt .8s ease-in-out infinite;}
+  .icon-picker .icon-btn[data-icon="rabbit"]:hover svg{animation:pick-hop .5s ease-in-out infinite;}
+  .icon-picker .icon-btn[data-icon="ship"]:hover svg{animation:pick-sway .9s ease-in-out infinite;}
+  .icon-picker .icon-btn[data-icon="truck"]:hover svg{animation:pick-rumble .4s ease-in-out infinite;}
+  .icon-picker .icon-btn[data-icon="smile"]:hover svg{animation:pick-bob .7s ease-in-out infinite;}
+  .icon-picker .icon-btn[data-icon="users"]:hover svg{animation:pick-bob .75s ease-in-out infinite;}
+  .icon-picker .icon-btn[data-icon="chess-king"]:hover svg{animation:pick-tilt 1s ease-in-out infinite;}
+  @keyframes icon-pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.22)}}
+  @keyframes pick-fly{0%,100%{transform:translate(0,0) rotate(-10deg) scale(.95)}50%{transform:translate(4px,-5px) rotate(10deg) scale(1.05)}}
+  @keyframes pick-tilt{0%,100%{transform:rotate(-18deg)}50%{transform:rotate(18deg)}}
+  @keyframes pick-hop{0%,100%{transform:translateY(0)}45%{transform:translateY(-7px)}70%{transform:translateY(-2px)}}
+  @keyframes pick-sway{0%,100%{transform:rotate(-8deg) translateY(0)}50%{transform:rotate(8deg) translateY(2px)}}
+  @keyframes pick-rumble{0%,100%{transform:translate(0,0)}30%{transform:translate(2px,-1px)}70%{transform:translate(-2px,1px)}}
+  @keyframes pick-bob{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-4px) scale(1.06)}}
+
+  .ctrl-toggle{display:flex;align-items:center;justify-content:space-between;gap:10px;
+    font-size:12px;color:var(--sub);margin-top:10px;}
+  .ctrl-toggle label{display:flex;align-items:center;gap:8px;cursor:pointer;color:var(--text);}
+  .ctrl-toggle input{accent-color:var(--accent);width:16px;height:16px;}
 
   .color-picker{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:4px;}
   .color-picker .color-btn{width:28px;height:28px;border-radius:50%;border:2px solid transparent;
@@ -160,10 +174,10 @@
     box-shadow:0 2px 8px rgba(0,0,0,.5);position:relative;transition:transform .15s, border-color .2s;}
   .photo-marker:hover .pin{transform:scale(1.1);}
   .photo-marker.visited .pin{border-color:var(--progress, var(--good));}
-  .photo-marker.active .pin{border-color:var(--accent2);box-shadow:0 0 0 2px color-mix(in srgb, var(--accent2) 40%, transparent);}
+  .photo-marker.active .pin{border-color:var(--path, var(--sub));box-shadow:0 0 0 2px color-mix(in srgb, var(--path, var(--sub)) 40%, transparent);}
   .photo-marker.visited.active .pin{border-color:var(--progress, var(--good));
     box-shadow:0 0 0 2px color-mix(in srgb, var(--progress, var(--good)) 45%, transparent);}
-  .photo-marker .count{position:absolute;bottom:-6px;right:-6px;background:var(--accent2);color:#fff;
+  .photo-marker .count{position:absolute;bottom:-6px;right:-6px;background:var(--path, var(--sub));color:#fff;
     font-size:10px;font-weight:700;border-radius:9px;min-width:18px;text-align:center;padding:1px 4px;
     border:2px solid var(--panel);}
   .photo-marker.visited .count{background:var(--progress, var(--good));color:#08131f;}
@@ -181,16 +195,38 @@
   .moving-marker .icon-badge::after{content:"";position:absolute;left:50%;top:100%;
     transform:translateX(-50%);border:5px solid transparent;
     border-top-color:rgba(18,21,28,.72);}
+  .moving-marker.playing .icon-badge[data-icon="airplane"]{animation:mm-fly 1.1s ease-in-out infinite;}
+  .moving-marker.playing .icon-badge[data-icon="heart"]{animation:mm-pulse .7s ease-in-out infinite;}
+  .moving-marker.playing .icon-badge[data-icon="moon"]{animation:mm-tilt 1.6s ease-in-out infinite;}
+  .moving-marker.playing .icon-badge[data-icon="rabbit"]{animation:mm-hop .55s ease-in-out infinite;}
+  .moving-marker.playing .icon-badge[data-icon="ship"]{animation:mm-sway 1.4s ease-in-out infinite;}
+  .moving-marker.playing .icon-badge[data-icon="truck"]{animation:mm-rumble .45s ease-in-out infinite;}
+  .moving-marker.playing .icon-badge[data-icon="smile"]{animation:mm-bob 1s ease-in-out infinite;}
+  .moving-marker.playing .icon-badge[data-icon="users"]{animation:mm-bob 1.1s ease-in-out infinite;}
+  .moving-marker.playing .icon-badge[data-icon="chess-king"]{animation:mm-tilt 1.8s ease-in-out infinite;}
+  @keyframes mm-fly{0%,100%{transform:translateX(-50%) translate(0,0) rotate(-8deg)}50%{transform:translateX(-50%) translate(3px,-4px) rotate(8deg)}}
+  @keyframes mm-pulse{0%,100%{transform:translateX(-50%) scale(1)}50%{transform:translateX(-50%) scale(1.14)}}
+  @keyframes mm-tilt{0%,100%{transform:translateX(-50%) rotate(-12deg)}50%{transform:translateX(-50%) rotate(12deg)}}
+  @keyframes mm-hop{0%,100%{transform:translateX(-50%) translateY(0)}40%{transform:translateX(-50%) translateY(-6px)}60%{transform:translateX(-50%) translateY(-2px)}}
+  @keyframes mm-sway{0%,100%{transform:translateX(-50%) rotate(-6deg) translateY(0)}50%{transform:translateX(-50%) rotate(6deg) translateY(2px)}}
+  @keyframes mm-rumble{0%,100%{transform:translateX(-50%) translate(0,0)}25%{transform:translateX(-50%) translate(1px,-1px)}75%{transform:translateX(-50%) translate(-1px,1px)}}
+  @keyframes mm-bob{0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(-3px)}}
   .moving-marker .arrival-bubble{position:absolute;left:50%;bottom:48px;transform:translateX(-50%);
     max-width:200px;padding:6px 10px;border-radius:8px;background:rgba(18,21,28,.88);
     border:1px solid var(--border);color:var(--text);font-size:12px;font-weight:600;
     line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
     pointer-events:none;box-shadow:0 4px 14px rgba(0,0,0,.35);
-    opacity:0;animation:arrivalBubbleIn .22s ease forwards;}
+    opacity:0;animation:arrivalBubbleIn .35s ease forwards;}
   .moving-marker .arrival-bubble::after{content:"";position:absolute;left:50%;top:100%;
     transform:translateX(-50%);border:6px solid transparent;
     border-top-color:rgba(18,21,28,.88);}
-  @keyframes arrivalBubbleIn{from{opacity:0;margin-bottom:-4px;}to{opacity:1;margin-bottom:0;}}
+  @keyframes arrivalBubbleIn{from{opacity:0;margin-bottom:-6px;}to{opacity:1;margin-bottom:0;}}
+  .moving-marker .photo-fan{position:absolute;left:50%;top:50%;width:0;height:0;pointer-events:none;}
+  .moving-marker .photo-fan .fan-shot{position:absolute;width:36px;height:36px;border-radius:8px;
+    background-size:cover;background-position:center;border:2px solid #fff;
+    box-shadow:0 3px 10px rgba(0,0,0,.45);opacity:0;
+    animation:fanShotIn .4s ease forwards;}
+  @keyframes fanShotIn{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:scale(1)}}
 
   /* fit-all control (replaces geolocation) */
   #btnFitAll{position:absolute;right:calc(12px + env(safe-area-inset-right));
@@ -332,6 +368,13 @@
         <span>지나간 경로·마커 색</span>
       </div>
       <div id="progressColorPicker" class="color-picker" data-role="progress"></div>
+
+      <div class="ctrl-toggle">
+        <label title="도착 말풍선과 함께 그 장소 사진을 펼쳐 보여줍니다">
+          <input type="checkbox" id="optPhotoFan" checked>
+          도착 시 사진 펼치기
+        </label>
+      </div>
     </div>
 
     <div id="empty">
@@ -432,7 +475,8 @@ function iconSvgHtml(name, size){
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`;
 }
 let segDurations = [];     // ms per travel hop at speed=1
-let segZoom = [];          // frozen A→B fit zoom per hop (set during prior dwell)
+let segZoom = [];          // frozen A→B fit zoom per hop
+let segCenter = [];        // frozen A→B bounds center per hop {lon,lat}
 let camZoom = null;        // current eased camera zoom while animating
 let camLon = null;         // eased camera center
 let camLat = null;
@@ -440,23 +484,29 @@ let camFollow = true;      // auto camera follow during playback; off when user 
 let animElapsed = 0;       // ms
 let animTotal = 0;
 let arrivalBubbleLabel = null; // place title during dwell (also used by export)
-let lastCamPhaseKey = null;    // detect dwell entry for hop-fit snap
+let arrivalFanPhotos = [];     // cluster photos shown in fan during dwell (export)
+let lastCamPhaseKey = null;
+let lastFanClusterIdx = null;
 let isPlaying = false;
 let isRecording = false;
 let lastFrameTs = null;
 let rafId = null;
 let lightboxPhotos = [];
 let lightboxIndex = 0;
+let showPhotoFan = true;
 
 const CAM_MIN_ZOOM = 3;
 const CAM_MAX_ZOOM = 15;
-const CAM_ZOOM_OUT_RATE = 2.8;    // levels/sec — dwell can open for long hops
-const CAM_ZOOM_IN_RATE = 3.2;     // levels/sec — reach hop fit within dwell
-const CAM_CENTER_BLEND = 0.2;
+const CAM_ZOOM_OUT_RATE = 4.5;    // levels/sec — reach hop fit within dwell
+const CAM_ZOOM_IN_RATE = 5.5;
+const CAM_CENTER_BLEND = 0.28;
 const CAM_ZOOM_DEADBAND = 0.08;
-const NEAR_HOP_M = 400;             // below this, bump fit zoom toward street detail
-const DWELL_MS = 1400;              // pause at each place (speed multiplier applies)
+const NEAR_HOP_M = 400;
+const DWELL_MS = 1400;
 const LAST_DWELL_ZOOM = 14;
+const OVERVIEW_HOLD_MS = 700;     // video intro: hold whole-trip view
+const PHOTO_FAN_MAX = 6;
+const LS_PHOTO_FAN = 'travel-tracker-photo-fan';
 
 const $ = (id) => document.getElementById(id);
 
@@ -572,22 +622,42 @@ function zoomToFitPoints(a, b, padding){
   return Math.max(CAM_MIN_ZOOM, Math.min(CAM_MAX_ZOOM, z));
 }
 
-function hopFitZoom(a, b){
+/** Zoom + center that fit both hop endpoints (A and B stay on screen). */
+function hopFitCamera(a, b){
+  const pad = playPadding();
+  const mid = { lon: (a.lon + b.lon) / 2, lat: (a.lat + b.lat) / 2 };
+  const same = Math.abs(a.lat - b.lat) < 1e-7 && Math.abs(a.lon - b.lon) < 1e-7;
+  if (same) return { zoom: CAM_MAX_ZOOM, lon: a.lon, lat: a.lat };
   const m = haversine(a.lat, a.lon, b.lat, b.lon);
-  let z = zoomToFitPoints(a, b, playPadding());
+  let z = 12;
+  let lon = mid.lon, lat = mid.lat;
+  const bounds = new maplibregl.LngLatBounds([a.lon, a.lat], [b.lon, b.lat]);
+  try {
+    const cam = map.cameraForBounds(bounds, { padding: pad, maxZoom: CAM_MAX_ZOOM });
+    if (cam && typeof cam.zoom === 'number'){
+      z = cam.zoom;
+      if (cam.center){ lon = cam.center.lng; lat = cam.center.lat; }
+    } else {
+      z = zoomToFitPoints(a, b, pad);
+    }
+  } catch (e) {
+    z = zoomToFitPoints(a, b, pad);
+  }
   if (m < NEAR_HOP_M) z = Math.max(z, 14.5);
   else if (m < 2000) z = Math.max(z, 13);
   else if (m < 15000) z = Math.max(z, 11.5);
   else if (m < 80000) z = Math.max(z, 9.5);
-  return Math.max(CAM_MIN_ZOOM, Math.min(CAM_MAX_ZOOM, z));
+  z = Math.max(CAM_MIN_ZOOM, Math.min(CAM_MAX_ZOOM, z));
+  return { zoom: z, lon, lat };
 }
 
-/** Jump camera to first hop A→B fit (playback/record start — not whole-trip overview). */
+/** Jump camera to first hop A→B fit (preview start). */
 function jumpToFirstHop(){
   if (!clusters.length) return;
+  const c0 = segCenter[0];
   const z = segZoom[0] != null ? segZoom[0] : LAST_DWELL_ZOOM;
-  camLon = clusters[0].lon;
-  camLat = clusters[0].lat;
+  camLon = c0 ? c0.lon : clusters[0].lon;
+  camLat = c0 ? c0.lat : clusters[0].lat;
   camZoom = z;
   map.jumpTo({ center: [camLon, camLat], zoom: camZoom });
   lastCamPhaseKey = null;
@@ -614,6 +684,55 @@ function setArrivalBubble(text){
     el.appendChild(bubble);
   }
   bubble.textContent = text;
+}
+
+function clearPhotoFan(){
+  arrivalFanPhotos = [];
+  lastFanClusterIdx = null;
+  if (!movingMarker) return;
+  const fan = movingMarker.getElement().querySelector('.photo-fan');
+  if (fan) fan.remove();
+}
+
+function setPhotoFan(cluster, clusterIdx){
+  if (!showPhotoFan || !cluster || !movingMarker){
+    clearPhotoFan();
+    return;
+  }
+  if (lastFanClusterIdx === clusterIdx && movingMarker.getElement().querySelector('.photo-fan')){
+    return;
+  }
+  clearPhotoFan();
+  lastFanClusterIdx = clusterIdx;
+  const photos = (cluster.photos || []).slice(0, PHOTO_FAN_MAX);
+  arrivalFanPhotos = photos;
+  if (!photos.length) return;
+  const el = movingMarker.getElement();
+  const fan = document.createElement('div');
+  fan.className = 'photo-fan';
+  const n = photos.length;
+  photos.forEach((p, i) => {
+    const shot = document.createElement('div');
+    shot.className = 'fan-shot';
+    shot.style.backgroundImage = `url(${p.url})`;
+    const angle = n === 1 ? -90 : (-150 + (120 * i) / Math.max(1, n - 1));
+    const rad = angle * Math.PI / 180;
+    const r = 52;
+    const x = Math.cos(rad) * r;
+    const y = Math.sin(rad) * r - 8;
+    shot.style.left = x + 'px';
+    shot.style.top = y + 'px';
+    shot.style.marginLeft = '-18px';
+    shot.style.marginTop = '-18px';
+    shot.style.animationDelay = (i * 0.07) + 's';
+    fan.appendChild(shot);
+  });
+  el.appendChild(fan);
+}
+
+function syncMovingMarkerPlaying(){
+  if (!movingMarker) return;
+  movingMarker.getElement().classList.toggle('playing', isPlaying || isRecording);
 }
 
 /**
@@ -1096,14 +1215,39 @@ buildColorPicker('progressColorPicker', 'progress', progressColor);
 setThemeColor('path', pathColor);
 setThemeColor('progress', progressColor);
 
+(function initPhotoFanOption(){
+  const el = $('optPhotoFan');
+  if (!el) return;
+  try {
+    const saved = localStorage.getItem(LS_PHOTO_FAN);
+    if (saved === '0') showPhotoFan = false;
+    else if (saved === '1') showPhotoFan = true;
+  } catch (e) { /* ignore */ }
+  el.checked = showPhotoFan;
+  el.addEventListener('change', () => {
+    showPhotoFan = !!el.checked;
+    try { localStorage.setItem(LS_PHOTO_FAN, showPhotoFan ? '1' : '0'); } catch (e) { /* ignore */ }
+    if (!showPhotoFan) clearPhotoFan();
+    else if (animTotal > 0) renderFrame(animElapsed);
+  });
+})();
+
 function applyMarkerIcon(){
   if (!movingMarker) return;
   const el = movingMarker.getElement();
-  const keep = arrivalBubbleLabel;
+  const keepBubble = arrivalBubbleLabel;
+  const keepFanIdx = lastFanClusterIdx;
+  const keepFanCluster = keepFanIdx != null ? clusters[keepFanIdx] : null;
   el.className = 'moving-marker';
   const svg = iconSvgHtml(movingIconType, 18);
-  el.innerHTML = '<span class="core"></span>' + (svg ? `<span class="icon-badge">${svg}</span>` : '');
-  if (keep) setArrivalBubble(keep);
+  el.innerHTML = '<span class="core"></span>' +
+    (svg ? `<span class="icon-badge" data-icon="${movingIconType}">${svg}</span>` : '');
+  syncMovingMarkerPlaying();
+  if (keepBubble) setArrivalBubble(keepBubble);
+  if (keepFanCluster){
+    lastFanClusterIdx = null;
+    setPhotoFan(keepFanCluster, keepFanIdx);
+  }
 }
 
 /* ============ Rendering: markers, list, route ============ */
@@ -1321,18 +1465,21 @@ const MAX_SEG_MS = 7000;
 
 function computeSegments(){
   if (clusters.length < 2){
-    segDurations = []; segZoom = []; animTotal = 0;
+    segDurations = []; segZoom = []; segCenter = []; animTotal = 0;
     $('timeline').classList.remove('show');
     return false;
   }
   $('timeline').classList.add('show');
   segDurations = [];
   segZoom = [];
+  segCenter = [];
   for (let i = 0; i < clusters.length - 1; i++){
     const a = clusters[i], b = clusters[i + 1];
     const km = haversine(a.lat, a.lon, b.lat, b.lon) / 1000;
     segDurations.push(Math.max(MIN_SEG_MS, Math.min(MAX_SEG_MS, km * MS_PER_KM)));
-    segZoom.push(hopFitZoom(a, b));
+    const fit = hopFitCamera(a, b);
+    segZoom.push(fit.zoom);
+    segCenter.push({ lon: fit.lon, lat: fit.lat });
   }
   // dwell at every place + travel between them
   animTotal = clusters.length * DWELL_MS + segDurations.reduce((sum, d) => sum + d, 0);
@@ -1347,6 +1494,7 @@ function setupAnimation(){
   camLat = null;
   arrivalBubbleLabel = null;
   lastCamPhaseKey = null;
+  clearPhotoFan();
   // defer camera to fitToClusters / playback; first frame only syncs marker + UI
   camFollow = false;
   if (map.getSource('route-progress')) map.getSource('route-progress').setData(emptyLine());
@@ -1399,6 +1547,7 @@ function renderFrame(elapsed, frameDt){
     b = clusters[Math.min(phase.clusterIdx + 1, n - 1)] || c;
     segT = phase.clusterIdx >= n - 1 ? 1 : 0;
     setArrivalBubble(placeTitle(c));
+    setPhotoFan(c, phase.clusterIdx);
   } else {
     const segIdx = phase.segIdx;
     a = clusters[segIdx];
@@ -1408,60 +1557,57 @@ function renderFrame(elapsed, frameDt){
     nearIdx = segT < 0.5 ? segIdx : Math.min(segIdx + 1, n - 1);
     reachedIdx = segT >= 0.98 ? Math.min(segIdx + 1, n - 1) : segIdx;
     setArrivalBubble(null);
+    clearPhotoFan();
   }
 
   if (movingMarker) movingMarker.setLngLat([lon, lat]);
+  syncMovingMarkerPlaying();
 
   if (camFollow){
     let targetZoom, targetLon, targetLat;
     if (phase.kind === 'dwell'){
-      targetLon = lon;
-      targetLat = lat;
       if (phase.clusterIdx >= n - 1){
         targetZoom = LAST_DWELL_ZOOM;
+        targetLon = lon;
+        targetLat = lat;
       } else {
+        // Frame upcoming hop so both start and end stay on screen
         targetZoom = segZoom[phase.clusterIdx] ?? LAST_DWELL_ZOOM;
+        const sc = segCenter[phase.clusterIdx];
+        targetLon = sc ? sc.lon : lon;
+        targetLat = sc ? sc.lat : lat;
       }
     } else {
       targetZoom = segZoom[phase.segIdx] ?? map.getZoom();
-      targetLon = lon;
-      targetLat = lat;
+      const sc = segCenter[phase.segIdx];
+      targetLon = sc ? sc.lon : lon;
+      targetLat = sc ? sc.lat : lat;
     }
 
-    const phaseKey = phase.kind + ':' + (phase.kind === 'dwell' ? phase.clusterIdx : phase.segIdx);
-    const enteredDwell = phase.kind === 'dwell' && phaseKey !== lastCamPhaseKey;
-    lastCamPhaseKey = phaseKey;
+    lastCamPhaseKey = phase.kind + ':' + (phase.kind === 'dwell' ? phase.clusterIdx : phase.segIdx);
 
     if (camZoom == null) camZoom = map.getZoom();
     if (camLon == null){ camLon = targetLon; camLat = targetLat; }
 
-    // On each arrival: snap to that hop's A→B fit so nearby places look close immediately
-    if (enteredDwell){
-      camZoom = targetZoom;
-      camLon = targetLon;
-      camLat = targetLat;
-      map.jumpTo({ center: [camLon, camLat], zoom: camZoom });
-    } else {
-      const dz = targetZoom - camZoom;
-      if (Math.abs(dz) >= CAM_ZOOM_DEADBAND){
-        const rate = dz < 0 ? CAM_ZOOM_OUT_RATE : CAM_ZOOM_IN_RATE;
-        const maxDz = rate * dtSec;
-        if (dz > maxDz) camZoom += maxDz;
-        else if (dz < -maxDz) camZoom -= maxDz;
-        else camZoom += dz * Math.min(1, 3 * dtSec);
-      }
-
-      camLon += (targetLon - camLon) * Math.min(1, CAM_CENTER_BLEND * (dtSec * 60));
-      camLat += (targetLat - camLat) * Math.min(1, CAM_CENTER_BLEND * (dtSec * 60));
-
-      const cur = map.getCenter();
-      const zNow = map.getZoom();
-      const moved =
-        Math.abs(camZoom - zNow) > 0.01 ||
-        Math.abs(camLon - cur.lng) > 1e-7 ||
-        Math.abs(camLat - cur.lat) > 1e-7;
-      if (moved) map.jumpTo({ center:[camLon, camLat], zoom: camZoom });
+    const dz = targetZoom - camZoom;
+    if (Math.abs(dz) >= CAM_ZOOM_DEADBAND){
+      const rate = dz < 0 ? CAM_ZOOM_OUT_RATE : CAM_ZOOM_IN_RATE;
+      const maxDz = rate * dtSec;
+      if (dz > maxDz) camZoom += maxDz;
+      else if (dz < -maxDz) camZoom -= maxDz;
+      else camZoom += dz * Math.min(1, 3 * dtSec);
     }
+
+    camLon += (targetLon - camLon) * Math.min(1, CAM_CENTER_BLEND * (dtSec * 60));
+    camLat += (targetLat - camLat) * Math.min(1, CAM_CENTER_BLEND * (dtSec * 60));
+
+    const cur = map.getCenter();
+    const zNow = map.getZoom();
+    const moved =
+      Math.abs(camZoom - zNow) > 0.01 ||
+      Math.abs(camLon - cur.lng) > 1e-7 ||
+      Math.abs(camLat - cur.lat) > 1e-7;
+    if (moved) map.jumpTo({ center:[camLon, camLat], zoom: camZoom });
   }
 
   const traveled = [];
@@ -1510,27 +1656,33 @@ function playAnim(){
     jumpToFirstHop();
   } else {
     const phase = phaseAtElapsed(animElapsed);
-    let pos;
+    let targetZoom, targetLon, targetLat;
     if (phase.kind === 'dwell'){
-      const c = clusters[phase.clusterIdx];
-      pos = { lon: c.lon, lat: c.lat };
+      if (phase.clusterIdx >= clusters.length - 1){
+        targetZoom = LAST_DWELL_ZOOM;
+        targetLon = clusters[phase.clusterIdx].lon;
+        targetLat = clusters[phase.clusterIdx].lat;
+      } else {
+        targetZoom = segZoom[phase.clusterIdx] ?? map.getZoom();
+        const sc = segCenter[phase.clusterIdx];
+        targetLon = sc ? sc.lon : clusters[phase.clusterIdx].lon;
+        targetLat = sc ? sc.lat : clusters[phase.clusterIdx].lat;
+      }
     } else {
-      const a = clusters[phase.segIdx], b = clusters[phase.segIdx + 1] || a;
-      pos = lerpAlongRoute(a, b, phase.t);
+      targetZoom = segZoom[phase.segIdx] ?? map.getZoom();
+      const sc = segCenter[phase.segIdx];
+      targetLon = sc ? sc.lon : clusters[phase.segIdx].lon;
+      targetLat = sc ? sc.lat : clusters[phase.segIdx].lat;
     }
-    const zTarget = phase.kind === 'dwell'
-      ? (phase.clusterIdx >= clusters.length - 1
-          ? LAST_DWELL_ZOOM
-          : (segZoom[phase.clusterIdx] ?? map.getZoom()))
-      : (segZoom[phase.segIdx] ?? map.getZoom());
-    camLon = pos.lon;
-    camLat = pos.lat;
-    camZoom = zTarget;
+    camLon = targetLon;
+    camLat = targetLat;
+    camZoom = targetZoom;
     map.jumpTo({ center:[camLon, camLat], zoom: camZoom });
     lastCamPhaseKey = null;
   }
 
   isPlaying = true; lastFrameTs = null;
+  syncMovingMarkerPlaying();
   $('btnPlay').textContent = '⏸ 일시정지';
   rafId = requestAnimationFrame(stepAnim);
 }
@@ -1538,10 +1690,17 @@ function pauseAnim(){
   isPlaying = false;
   if (rafId) cancelAnimationFrame(rafId);
   rafId = null;
+  syncMovingMarkerPlaying();
   const playBtn = $('btnPlay');
   if (playBtn) playBtn.textContent = '▶ 미리보기';
 }
-function stopAnim(){ pauseAnim(); animElapsed = 0; setArrivalBubble(null); lastCamPhaseKey = null; }
+function stopAnim(){
+  pauseAnim();
+  animElapsed = 0;
+  setArrivalBubble(null);
+  clearPhotoFan();
+  lastCamPhaseKey = null;
+}
 
 function pickRecorderMime(){
   if (typeof MediaRecorder === 'undefined') return null;
@@ -1640,8 +1799,9 @@ function downloadBlob(blob, filename){
   setTimeout(() => URL.revokeObjectURL(url), 8000);
 }
 
-function drawExportFrame(ctx, outW, outH, markerImgs, exportIconImg, visitedSet){
+function drawExportFrame(ctx, outW, outH, markerImgs, exportIconImg, visitedSet, fanImgMap){
   visitedSet = visitedSet || new Set();
+  fanImgMap = fanImgMap || null;
   const mapCanvas = map.getCanvas();
   ctx.drawImage(mapCanvas, 0, 0, outW, outH);
   const sx = outW / mapCanvas.clientWidth;
@@ -1662,14 +1822,14 @@ function drawExportFrame(ctx, outW, outH, markerImgs, exportIconImg, visitedSet)
     ctx.restore();
     ctx.beginPath();
     ctx.arc(x, y, r, 0, Math.PI * 2);
-    ctx.strokeStyle = visitedSet.has(i) ? progressColor : '#8b93a7';
+    ctx.strokeStyle = visitedSet.has(i) ? progressColor : pathColor;
     ctx.lineWidth = 3 * Math.min(sx, sy);
     ctx.stroke();
     if (c.photos.length > 1){
       const br = 9 * Math.min(sx, sy);
       ctx.beginPath();
       ctx.arc(x + r * 0.7, y + r * 0.7, br, 0, Math.PI * 2);
-      ctx.fillStyle = visitedSet.has(i) ? progressColor : '#ff6b6b';
+      ctx.fillStyle = visitedSet.has(i) ? progressColor : pathColor;
       ctx.fill();
       ctx.fillStyle = visitedSet.has(i) ? '#08131f' : '#fff';
       ctx.font = `bold ${11 * Math.min(sx, sy)}px sans-serif`;
@@ -1684,6 +1844,46 @@ function drawExportFrame(ctx, outW, outH, markerImgs, exportIconImg, visitedSet)
     const p = map.project([ll.lng, ll.lat]);
     const x = p.x * sx, y = p.y * sy;
     const core = 7 * Math.min(sx, sy);
+    const s = Math.min(sx, sy);
+
+    // photo fan behind marker chrome
+    if (arrivalFanPhotos.length && fanImgMap){
+      const n = arrivalFanPhotos.length;
+      arrivalFanPhotos.forEach((ph, i) => {
+        const img = fanImgMap.get(ph.url);
+        if (!img) return;
+        const angle = n === 1 ? -90 : (-150 + (120 * i) / Math.max(1, n - 1));
+        const rad = angle * Math.PI / 180;
+        const rr = 52 * s;
+        const fx = x + Math.cos(rad) * rr;
+        const fy = y + Math.sin(rad) * rr - 8 * s;
+        const size = 36 * s;
+        ctx.save();
+        ctx.beginPath();
+        const radCorner = 8 * s;
+        const bx = fx - size / 2, by = fy - size / 2;
+        ctx.moveTo(bx + radCorner, by);
+        ctx.arcTo(bx + size, by, bx + size, by + size, radCorner);
+        ctx.arcTo(bx + size, by + size, bx, by + size, radCorner);
+        ctx.arcTo(bx, by + size, bx, by, radCorner);
+        ctx.arcTo(bx, by, bx + size, by, radCorner);
+        ctx.closePath();
+        ctx.clip();
+        ctx.drawImage(img, bx, by, size, size);
+        ctx.restore();
+        ctx.beginPath();
+        ctx.moveTo(bx + radCorner, by);
+        ctx.arcTo(bx + size, by, bx + size, by + size, radCorner);
+        ctx.arcTo(bx + size, by + size, bx, by + size, radCorner);
+        ctx.arcTo(bx, by + size, bx, by, radCorner);
+        ctx.arcTo(bx, by, bx + size, by, radCorner);
+        ctx.closePath();
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2 * s;
+        ctx.stroke();
+      });
+    }
+
     ctx.beginPath();
     ctx.arc(x, y, core, 0, Math.PI * 2);
     ctx.fillStyle = progressColor;
@@ -1696,7 +1896,6 @@ function drawExportFrame(ctx, outW, outH, markerImgs, exportIconImg, visitedSet)
       ctx.drawImage(exportIconImg, x - iw / 2, y - core - iw - 2 * sy, iw, iw);
     }
     if (arrivalBubbleLabel){
-      const s = Math.min(sx, sy);
       const fontPx = Math.max(11, 12 * s);
       ctx.font = `600 ${fontPx}px sans-serif`;
       ctx.textAlign = 'center';
@@ -1720,7 +1919,6 @@ function drawExportFrame(ctx, outW, outH, markerImgs, exportIconImg, visitedSet)
       ctx.strokeStyle = 'rgba(255,255,255,0.18)';
       ctx.lineWidth = 1 * s;
       ctx.stroke();
-      // tail
       ctx.beginPath();
       ctx.moveTo(x - 6 * s, by + bh);
       ctx.lineTo(x, by + bh + 6 * s);
@@ -1796,11 +1994,12 @@ async function recordAndDownload(){
   try {
     animElapsed = 0;
     lastCamPhaseKey = null;
-    camFollow = true;
-    jumpToFirstHop();
-    await waitMapFrame();
-    await waitMapFrame();
-    renderFrame(0, 16);
+    clearPhotoFan();
+    setArrivalBubble(null);
+
+    // Video opens on whole-trip overview (same scale as after load / fit-all)
+    camFollow = false;
+    jumpToTripOverview();
     await waitMapFrame();
     await waitMapFrame();
 
@@ -1811,6 +2010,14 @@ async function recordAndDownload(){
     const ctx = out.getContext('2d', { alpha: false });
 
     const markerImgs = await Promise.all(clusters.map(c => loadImage(c.rep.url)));
+    const fanImgMap = new Map();
+    const fanUrls = [];
+    clusters.forEach(c => c.photos.slice(0, PHOTO_FAN_MAX).forEach(p => {
+      if (!fanImgMap.has(p.url)){ fanImgMap.set(p.url, null); fanUrls.push(p.url); }
+    }));
+    await Promise.all(fanUrls.map(async url => {
+      fanImgMap.set(url, await loadImage(url));
+    }));
     const iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="${progressColor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${MARKER_ICON_PATHS[movingIconType] || ''}</svg>`;
     const exportIconImg = await loadImage('data:image/svg+xml;charset=utf-8,' + encodeURIComponent(iconSvg));
 
@@ -1827,6 +2034,23 @@ async function recordAndDownload(){
     rec.start(100);
 
     const speed = Number($('tlSpeed').value) || 1;
+    syncMovingMarkerPlaying();
+
+    // Hold overview briefly before easing into the first hop
+    const overviewFrames = Math.max(1, Math.round((OVERVIEW_HOLD_MS / speed) / frameDt));
+    if (movingMarker) movingMarker.setLngLat([clusters[0].lon, clusters[0].lat]);
+    for (let i = 0; i < overviewFrames; i++){
+      drawExportFrame(ctx, out.width, out.height, markerImgs, exportIconImg, new Set([0]), fanImgMap);
+      await waitMapFrame();
+      await new Promise(r => setTimeout(r, Math.max(8, frameDt - 4)));
+    }
+
+    camFollow = true;
+    camZoom = map.getZoom();
+    camLon = map.getCenter().lng;
+    camLat = map.getCenter().lat;
+    lastCamPhaseKey = null;
+
     const maxFrames = Math.ceil((animTotal / speed) / frameDt) + fps * 3;
     let frames = 0;
 
@@ -1840,7 +2064,7 @@ async function recordAndDownload(){
       await waitMapFrame();
       const visited = new Set();
       markers.forEach((m, i) => { if (m._el.classList.contains('visited')) visited.add(i); });
-      drawExportFrame(ctx, out.width, out.height, markerImgs, exportIconImg, visited);
+      drawExportFrame(ctx, out.width, out.height, markerImgs, exportIconImg, visited, fanImgMap);
       const pct = Math.round((animElapsed / animTotal) * 100);
       btn.textContent = pct + '%';
       badge.textContent = '녹화 중 ' + pct + '%';
@@ -1850,7 +2074,7 @@ async function recordAndDownload(){
     // hold last frame briefly
     const visitedEnd = new Set(clusters.map((_, i) => i));
     for (let i = 0; i < Math.round(fps * 0.7); i++){
-      drawExportFrame(ctx, out.width, out.height, markerImgs, exportIconImg, visitedEnd);
+      drawExportFrame(ctx, out.width, out.height, markerImgs, exportIconImg, visitedEnd, fanImgMap);
       await new Promise(r => setTimeout(r, frameDt));
     }
 
@@ -1890,6 +2114,7 @@ async function recordAndDownload(){
     btn.textContent = '📥 저장';
     isRecording = false;
     camFollow = true;
+    syncMovingMarkerPlaying();
   }
 }
 
