@@ -530,6 +530,7 @@ let arrivalBubbleLabel = null; // place title during dwell (also used by export)
 let arrivalSlideState = null;  // { title, url, index, total } for export overlay
 let lastCamPhaseKey = null;
 let lastSlideKey = null;       // clusterIdx:photoIdx to avoid redundant DOM churn
+let camBoostLeftMs = 0;        // after phase change, briefly speed up zoom ease
 let isPlaying = false;
 let isRecording = false;
 let lastFrameTs = null;
@@ -545,12 +546,14 @@ const CAM_ZOOM_OUT_RATE = 4.5;    // levels/sec — reach hop fit within dwell
 const CAM_ZOOM_IN_RATE = 5.5;
 const CAM_ZOOM_RATE_K = 0.55;     // scale rate with remaining |dz|
 const CAM_ZOOM_RATE_CAP = 4;      // max multiplier on base zoom rate
-const CAM_CENTER_BLEND = 0.28;
+const CAM_CENTER_BLEND = 0.35;    // snappier marker follow
 const CAM_ZOOM_DEADBAND = 0.08;
+const CAM_BOOST_MS = 400;         // short fast ease after hop/dwell change
+const CAM_BOOST_MULT = 2;
 const DWELL_MS = 1400;
 const SLIDE_MS = 650;             // per-photo dwell slice in popup mode
 const LAST_DWELL_ZOOM = 14;
-const OVERVIEW_HOLD_MS = 500;     // play/record intro: hold whole-trip view
+const OVERVIEW_HOLD_MS = 500;     // record intro only: hold whole-trip view
 const PHOTO_SLIDE_MAX = 6;
 const LS_ARRIVAL_MODE = 'travel-tracker-arrival-mode';
 const LS_PHOTO_FAN_LEGACY = 'travel-tracker-photo-fan';
@@ -693,16 +696,16 @@ function hopFitCamera(a, b){
   return { zoom: z, lon, lat };
 }
 
-/** Jump camera to first hop A→B fit (preview start). */
+/** Jump camera to first place + first hop zoom (preview start — follow traveler, not bounds midpoint). */
 function jumpToFirstHop(){
   if (!clusters.length) return;
-  const c0 = segCenter[0];
   const z = segZoom[0] != null ? segZoom[0] : LAST_DWELL_ZOOM;
-  camLon = c0 ? c0.lon : clusters[0].lon;
-  camLat = c0 ? c0.lat : clusters[0].lat;
+  camLon = clusters[0].lon;
+  camLat = clusters[0].lat;
   camZoom = z;
   map.jumpTo({ center: [camLon, camLat], zoom: camZoom });
   lastCamPhaseKey = null;
+  camBoostLeftMs = CAM_BOOST_MS;
 }
 
 function placeTitle(c){
@@ -1629,6 +1632,7 @@ function setupAnimation(){
   camLat = null;
   arrivalBubbleLabel = null;
   lastCamPhaseKey = null;
+  camBoostLeftMs = 0;
   hideArrivalSlideshow();
   // defer camera to fitToClusters / playback; first frame only syncs marker + UI
   camFollow = false;
@@ -1705,34 +1709,36 @@ function renderFrame(elapsed, frameDt){
 
   if (camFollow){
     let targetZoom, targetLon, targetLat;
+    // Always track the traveler; hop zoom still uses segZoom so near/far scale feels right
+    targetLon = lon;
+    targetLat = lat;
     if (phase.kind === 'dwell'){
       if (arrivalMode === 'popup' || phase.clusterIdx >= n - 1){
-        // Popup (or final stop): zoom into the current place
         targetZoom = LAST_DWELL_ZOOM;
-        targetLon = lon;
-        targetLat = lat;
       } else {
-        // Move-only: frame upcoming hop so both start and end stay on screen
         targetZoom = segZoom[phase.clusterIdx] ?? LAST_DWELL_ZOOM;
-        const sc = segCenter[phase.clusterIdx];
-        targetLon = sc ? sc.lon : lon;
-        targetLat = sc ? sc.lat : lat;
       }
     } else {
       targetZoom = segZoom[phase.segIdx] ?? map.getZoom();
-      const sc = segCenter[phase.segIdx];
-      targetLon = sc ? sc.lon : lon;
-      targetLat = sc ? sc.lat : lat;
     }
 
-    lastCamPhaseKey = phase.kind + ':' + (phase.kind === 'dwell' ? phase.clusterIdx : phase.segIdx);
+    const phaseKey = phase.kind + ':' + (phase.kind === 'dwell' ? phase.clusterIdx : phase.segIdx);
+    if (phaseKey !== lastCamPhaseKey){
+      lastCamPhaseKey = phaseKey;
+      camBoostLeftMs = CAM_BOOST_MS;
+    }
 
     if (camZoom == null) camZoom = map.getZoom();
     if (camLon == null){ camLon = targetLon; camLat = targetLat; }
 
+    const boost = camBoostLeftMs > 0 ? CAM_BOOST_MULT : 1;
+    if (camBoostLeftMs > 0){
+      camBoostLeftMs = Math.max(0, camBoostLeftMs - (frameDt || 16));
+    }
+
     const dz = targetZoom - camZoom;
     const absDz = Math.abs(dz);
-    const speedMul = Math.min(CAM_ZOOM_RATE_CAP, 1 + CAM_ZOOM_RATE_K * absDz);
+    const speedMul = Math.min(CAM_ZOOM_RATE_CAP, 1 + CAM_ZOOM_RATE_K * absDz) * boost;
     if (absDz >= CAM_ZOOM_DEADBAND){
       const rate = (dz < 0 ? CAM_ZOOM_OUT_RATE : CAM_ZOOM_IN_RATE) * speedMul;
       const maxDz = rate * dtSec;
@@ -1805,46 +1811,35 @@ function playAnim(){
   cancelPlayIntro();
 
   if (animElapsed === 0){
-    jumpToTripOverview();
+    jumpToFirstHop();
     if (movingMarker) movingMarker.setLngLat([clusters[0].lon, clusters[0].lat]);
     isPlaying = true;
     lastFrameTs = null;
     syncMovingMarkerPlaying();
     $('btnPlay').textContent = '⏸ 일시정지';
-    playIntroTimer = setTimeout(() => {
-      playIntroTimer = null;
-      if (!isPlaying || isRecording) return;
-      jumpToFirstHop();
-      lastFrameTs = null;
-      rafId = requestAnimationFrame(stepAnim);
-    }, OVERVIEW_HOLD_MS);
+    rafId = requestAnimationFrame(stepAnim);
     return;
   }
 
   const phase = phaseAtElapsed(animElapsed);
-  let targetZoom, targetLon, targetLat;
+  let pos, targetZoom;
   if (phase.kind === 'dwell'){
-    if (arrivalMode === 'popup' || phase.clusterIdx >= clusters.length - 1){
-      targetZoom = LAST_DWELL_ZOOM;
-      targetLon = clusters[phase.clusterIdx].lon;
-      targetLat = clusters[phase.clusterIdx].lat;
-    } else {
-      targetZoom = segZoom[phase.clusterIdx] ?? map.getZoom();
-      const sc = segCenter[phase.clusterIdx];
-      targetLon = sc ? sc.lon : clusters[phase.clusterIdx].lon;
-      targetLat = sc ? sc.lat : clusters[phase.clusterIdx].lat;
-    }
+    const c = clusters[phase.clusterIdx];
+    pos = { lon: c.lon, lat: c.lat };
+    targetZoom = (arrivalMode === 'popup' || phase.clusterIdx >= clusters.length - 1)
+      ? LAST_DWELL_ZOOM
+      : (segZoom[phase.clusterIdx] ?? map.getZoom());
   } else {
+    const a = clusters[phase.segIdx], b = clusters[phase.segIdx + 1] || a;
+    pos = lerpAlongRoute(a, b, phase.t);
     targetZoom = segZoom[phase.segIdx] ?? map.getZoom();
-    const sc = segCenter[phase.segIdx];
-    targetLon = sc ? sc.lon : clusters[phase.segIdx].lon;
-    targetLat = sc ? sc.lat : clusters[phase.segIdx].lat;
   }
-  camLon = targetLon;
-  camLat = targetLat;
+  camLon = pos.lon;
+  camLat = pos.lat;
   camZoom = targetZoom;
   map.jumpTo({ center:[camLon, camLat], zoom: camZoom });
   lastCamPhaseKey = null;
+  camBoostLeftMs = CAM_BOOST_MS;
 
   isPlaying = true; lastFrameTs = null;
   syncMovingMarkerPlaying();
@@ -1866,6 +1861,7 @@ function stopAnim(){
   setArrivalBubble(null);
   hideArrivalSlideshow();
   lastCamPhaseKey = null;
+  camBoostLeftMs = 0;
 }
 
 function pickRecorderMime(){
