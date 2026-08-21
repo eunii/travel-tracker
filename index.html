@@ -82,10 +82,14 @@
   @keyframes pick-rumble{0%,100%{transform:translate(0,0)}30%{transform:translate(2px,-1px)}70%{transform:translate(-2px,1px)}}
   @keyframes pick-bob{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-4px) scale(1.06)}}
 
-  .ctrl-toggle{display:flex;align-items:center;justify-content:space-between;gap:10px;
-    font-size:12px;color:var(--sub);margin-top:10px;}
-  .ctrl-toggle label{display:flex;align-items:center;gap:8px;cursor:pointer;color:var(--text);}
-  .ctrl-toggle input{accent-color:var(--accent);width:16px;height:16px;}
+  .ctrl-row.arrival-mode-row{margin-top:10px;}
+  .mode-picker{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:4px;}
+  .mode-picker .mode-btn{padding:10px 8px;border-radius:10px;background:var(--panel2);
+    border:1px solid var(--border);color:var(--sub);font-size:12px;font-weight:600;text-align:center;}
+  .mode-picker .mode-btn:hover{border-color:var(--accent);}
+  .mode-picker .mode-btn.active{border-color:var(--accent);background:rgba(77,159,255,.15);color:var(--text);}
+  .mode-picker .mode-btn .mode-sub{display:block;font-size:10px;font-weight:500;color:var(--sub);
+    margin-top:3px;line-height:1.3;}
 
   .color-picker{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:4px;}
   .color-picker .color-btn{width:28px;height:28px;border-radius:50%;border:2px solid transparent;
@@ -229,12 +233,26 @@
     transform:translateX(-50%);border:6px solid transparent;
     border-top-color:rgba(18,21,28,.88);}
   @keyframes arrivalBubbleIn{from{opacity:0;margin-bottom:-6px;}to{opacity:1;margin-bottom:0;}}
-  .moving-marker .photo-fan{position:absolute;left:50%;top:50%;width:0;height:0;pointer-events:none;}
-  .moving-marker .photo-fan .fan-shot{position:absolute;width:36px;height:36px;border-radius:8px;
-    background-size:cover;background-position:center;border:2px solid #fff;
-    box-shadow:0 3px 10px rgba(0,0,0,.45);opacity:0;
-    animation:fanShotIn .4s ease forwards;}
-  @keyframes fanShotIn{from{opacity:0;transform:scale(.6)}to{opacity:1;transform:scale(1)}}
+
+  /* Arrival slideshow overlay (popup mode) */
+  #arrivalSlideshow{position:absolute;inset:0;z-index:12;display:flex;align-items:center;
+    justify-content:center;pointer-events:none;padding:calc(56px + env(safe-area-inset-top)) 24px
+    calc(100px + env(safe-area-inset-bottom));opacity:0;visibility:hidden;
+    transition:opacity .28s ease, visibility .28s;}
+  #arrivalSlideshow.show{opacity:1;visibility:visible;}
+  #arrivalSlideshow .as-card{width:min(420px,92%);max-width:100%;background:rgba(18,21,28,.92);
+    border:1px solid var(--border);border-radius:16px;padding:14px 14px 12px;
+    box-shadow:0 16px 40px rgba(0,0,0,.45);backdrop-filter:blur(8px);
+    transform:scale(.92) translateY(12px);transition:transform .32s cubic-bezier(.2,.9,.2,1);}
+  #arrivalSlideshow.show .as-card{transform:scale(1) translateY(0);}
+  #arrivalSlideshow .as-title{font-family:var(--font-display);font-size:16px;font-weight:600;
+    color:var(--text);margin-bottom:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  #arrivalSlideshow .as-photo{width:100%;aspect-ratio:4/3;border-radius:12px;background-size:cover;
+    background-position:center;background-color:var(--panel2);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08);
+    transition:opacity .25s ease;}
+  #arrivalSlideshow .as-photo.swap{opacity:0;}
+  #arrivalSlideshow .as-count{margin-top:8px;font-size:12px;color:var(--sub);text-align:right;
+    font-variant-numeric:tabular-nums;}
 
   /* fit-all control (replaces geolocation) */
   #btnFitAll{position:absolute;right:calc(12px + env(safe-area-inset-right));
@@ -377,11 +395,16 @@
       </div>
       <div id="progressColorPicker" class="color-picker" data-role="progress"></div>
 
-      <div class="ctrl-toggle">
-        <label title="도착 말풍선과 함께 그 장소 사진을 펼쳐 보여줍니다">
-          <input type="checkbox" id="optPhotoFan">
-          도착 시 사진 펼치기
-        </label>
+      <div class="ctrl-row arrival-mode-row">
+        <span>도착 연출</span>
+      </div>
+      <div id="arrivalModePicker" class="mode-picker">
+        <button type="button" class="mode-btn active" data-mode="move">이동만
+          <span class="mode-sub">경로만 따라가기</span>
+        </button>
+        <button type="button" class="mode-btn" data-mode="popup">팝업
+          <span class="mode-sub">도착 시 사진 슬라이드</span>
+        </button>
       </div>
     </div>
 
@@ -395,6 +418,14 @@
     <div id="map"></div>
     <button id="sidebarToggle">☰</button>
     <div id="backdrop"></div>
+
+    <div id="arrivalSlideshow" aria-hidden="true">
+      <div class="as-card">
+        <div class="as-title" id="asTitle"></div>
+        <div class="as-photo" id="asPhoto"></div>
+        <div class="as-count" id="asCount"></div>
+      </div>
+    </div>
 
     <div id="detailpanel">
       <div class="dp-head">
@@ -486,6 +517,7 @@ function iconSvgHtml(name, size){
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`;
 }
 let segDurations = [];     // ms per travel hop at speed=1
+let segDwells = [];        // ms per place dwell (may vary in popup mode)
 let segZoom = [];          // frozen A→B fit zoom per hop
 let segCenter = [];        // frozen A→B bounds center per hop {lon,lat}
 let camZoom = null;        // current eased camera zoom while animating
@@ -495,16 +527,16 @@ let camFollow = true;      // auto camera follow during playback; off when user 
 let animElapsed = 0;       // ms
 let animTotal = 0;
 let arrivalBubbleLabel = null; // place title during dwell (also used by export)
-let arrivalFanPhotos = [];     // cluster photos shown in fan during dwell (export)
+let arrivalSlideState = null;  // { title, url, index, total } for export overlay
 let lastCamPhaseKey = null;
-let lastFanClusterIdx = null;
+let lastSlideKey = null;       // clusterIdx:photoIdx to avoid redundant DOM churn
 let isPlaying = false;
 let isRecording = false;
 let lastFrameTs = null;
 let rafId = null;
 let lightboxPhotos = [];
 let lightboxIndex = 0;
-let showPhotoFan = false;
+let arrivalMode = 'move';     // 'move' | 'popup'
 let playIntroTimer = null;
 
 const CAM_MIN_ZOOM = 3;
@@ -517,10 +549,12 @@ const CAM_CENTER_BLEND = 0.28;
 const CAM_ZOOM_DEADBAND = 0.08;
 const NEAR_HOP_M = 400;
 const DWELL_MS = 1400;
+const SLIDE_MS = 650;             // per-photo dwell slice in popup mode
 const LAST_DWELL_ZOOM = 14;
 const OVERVIEW_HOLD_MS = 500;     // play/record intro: hold whole-trip view
-const PHOTO_FAN_MAX = 6;
-const LS_PHOTO_FAN = 'travel-tracker-photo-fan';
+const PHOTO_SLIDE_MAX = 6;
+const LS_ARRIVAL_MODE = 'travel-tracker-arrival-mode';
+const LS_PHOTO_FAN_LEGACY = 'travel-tracker-photo-fan';
 
 const $ = (id) => document.getElementById(id);
 
@@ -700,48 +734,66 @@ function setArrivalBubble(text){
   bubble.textContent = text;
 }
 
-function clearPhotoFan(){
-  arrivalFanPhotos = [];
-  lastFanClusterIdx = null;
-  if (!movingMarker) return;
-  const fan = movingMarker.getElement().querySelector('.photo-fan');
-  if (fan) fan.remove();
+function slidePhotosForCluster(cluster){
+  if (!cluster || !cluster.photos || !cluster.photos.length) return [];
+  return cluster.photos.slice(0, PHOTO_SLIDE_MAX);
 }
 
-function setPhotoFan(cluster, clusterIdx){
-  if (!showPhotoFan || !cluster || !movingMarker){
-    clearPhotoFan();
+function dwellMsForCluster(c){
+  if (arrivalMode !== 'popup' || !c) return DWELL_MS;
+  const n = Math.max(1, slidePhotosForCluster(c).length);
+  return Math.max(DWELL_MS, n * SLIDE_MS);
+}
+
+function hideArrivalSlideshow(){
+  arrivalSlideState = null;
+  lastSlideKey = null;
+  const root = $('arrivalSlideshow');
+  if (!root) return;
+  root.classList.remove('show');
+  root.setAttribute('aria-hidden', 'true');
+}
+
+function syncArrivalSlideshow(cluster, clusterIdx, dwellT){
+  if (arrivalMode !== 'popup' || !cluster){
+    hideArrivalSlideshow();
     return;
   }
-  if (lastFanClusterIdx === clusterIdx && movingMarker.getElement().querySelector('.photo-fan')){
+  const photos = slidePhotosForCluster(cluster);
+  if (!photos.length){
+    hideArrivalSlideshow();
     return;
   }
-  clearPhotoFan();
-  lastFanClusterIdx = clusterIdx;
-  const photos = (cluster.photos || []).slice(0, PHOTO_FAN_MAX);
-  arrivalFanPhotos = photos;
-  if (!photos.length) return;
-  const el = movingMarker.getElement();
-  const fan = document.createElement('div');
-  fan.className = 'photo-fan';
-  const n = photos.length;
-  photos.forEach((p, i) => {
-    const shot = document.createElement('div');
-    shot.className = 'fan-shot';
-    shot.style.backgroundImage = `url(${p.url})`;
-    const angle = n === 1 ? -90 : (-150 + (120 * i) / Math.max(1, n - 1));
-    const rad = angle * Math.PI / 180;
-    const r = 52;
-    const x = Math.cos(rad) * r;
-    const y = Math.sin(rad) * r - 8;
-    shot.style.left = x + 'px';
-    shot.style.top = y + 'px';
-    shot.style.marginLeft = '-18px';
-    shot.style.marginTop = '-18px';
-    shot.style.animationDelay = (i * 0.07) + 's';
-    fan.appendChild(shot);
-  });
-  el.appendChild(fan);
+  const idx = Math.min(photos.length - 1, Math.floor(Math.min(0.999, Math.max(0, dwellT)) * photos.length));
+  const photo = photos[idx];
+  const key = clusterIdx + ':' + idx;
+  const title = placeTitle(cluster);
+  arrivalSlideState = { title, url: photo.url, index: idx, total: photos.length };
+
+  const root = $('arrivalSlideshow');
+  const titleEl = $('asTitle');
+  const photoEl = $('asPhoto');
+  const countEl = $('asCount');
+  if (!root || !titleEl || !photoEl || !countEl) return;
+
+  root.classList.add('show');
+  root.setAttribute('aria-hidden', 'false');
+  titleEl.textContent = title;
+  countEl.textContent = (idx + 1) + ' / ' + photos.length;
+
+  if (lastSlideKey === key) return;
+  const prevKey = lastSlideKey;
+  lastSlideKey = key;
+  if (prevKey != null && String(prevKey).split(':')[0] === String(clusterIdx)){
+    photoEl.classList.add('swap');
+    requestAnimationFrame(() => {
+      photoEl.style.backgroundImage = `url(${photo.url})`;
+      photoEl.classList.remove('swap');
+    });
+  } else {
+    photoEl.classList.remove('swap');
+    photoEl.style.backgroundImage = `url(${photo.url})`;
+  }
 }
 
 function syncMovingMarkerPlaying(){
@@ -761,11 +813,12 @@ function phaseAtElapsed(elapsed){
   }
   let acc = 0;
   for (let i = 0; i < n; i++){
-    if (elapsed < acc + DWELL_MS || i === n - 1){
-      const t = DWELL_MS > 0 ? Math.min(1, Math.max(0, (elapsed - acc) / DWELL_MS)) : 1;
+    const dwell = segDwells[i] != null ? segDwells[i] : DWELL_MS;
+    if (elapsed < acc + dwell || i === n - 1){
+      const t = dwell > 0 ? Math.min(1, Math.max(0, (elapsed - acc) / dwell)) : 1;
       return { kind: 'dwell', clusterIdx: i, segIdx: Math.min(i, n - 2), t };
     }
-    acc += DWELL_MS;
+    acc += dwell;
     const travelMs = segDurations[i] || 0;
     if (elapsed < acc + travelMs){
       const t = travelMs > 0 ? Math.min(1, (elapsed - acc) / travelMs) : 1;
@@ -1228,20 +1281,40 @@ buildColorPicker('progressColorPicker', 'progress', progressColor);
 setThemeColor('path', pathColor);
 setThemeColor('progress', progressColor);
 
-(function initPhotoFanOption(){
-  const el = $('optPhotoFan');
-  if (!el) return;
+(function initArrivalModeOption(){
+  const box = $('arrivalModePicker');
+  if (!box) return;
   try {
-    const saved = localStorage.getItem(LS_PHOTO_FAN);
-    if (saved === '0') showPhotoFan = false;
-    else if (saved === '1') showPhotoFan = true;
+    const saved = localStorage.getItem(LS_ARRIVAL_MODE);
+    if (saved === 'move' || saved === 'popup') arrivalMode = saved;
+    else {
+      const legacy = localStorage.getItem(LS_PHOTO_FAN_LEGACY);
+      if (legacy === '1') arrivalMode = 'popup';
+      else if (legacy === '0') arrivalMode = 'move';
+    }
   } catch (e) { /* ignore */ }
-  el.checked = showPhotoFan;
-  el.addEventListener('change', () => {
-    showPhotoFan = !!el.checked;
-    try { localStorage.setItem(LS_PHOTO_FAN, showPhotoFan ? '1' : '0'); } catch (e) { /* ignore */ }
-    if (!showPhotoFan) clearPhotoFan();
-    else if (animTotal > 0) renderFrame(animElapsed);
+  const syncBtns = () => {
+    box.querySelectorAll('.mode-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.mode === arrivalMode);
+    });
+  };
+  syncBtns();
+  box.querySelectorAll('.mode-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const mode = btn.dataset.mode;
+      if (mode !== 'move' && mode !== 'popup') return;
+      if (arrivalMode === mode) return;
+      arrivalMode = mode;
+      try { localStorage.setItem(LS_ARRIVAL_MODE, arrivalMode); } catch (e) { /* ignore */ }
+      syncBtns();
+      if (arrivalMode === 'move') hideArrivalSlideshow();
+      if (clusters.length >= 2){
+        const ratio = animTotal > 0 ? animElapsed / animTotal : 0;
+        computeSegments();
+        animElapsed = Math.min(animTotal, ratio * animTotal);
+        if (animTotal > 0) renderFrame(animElapsed);
+      }
+    });
   });
 })();
 
@@ -1249,18 +1322,12 @@ function applyMarkerIcon(){
   if (!movingMarker) return;
   const el = movingMarker.getElement();
   const keepBubble = arrivalBubbleLabel;
-  const keepFanIdx = lastFanClusterIdx;
-  const keepFanCluster = keepFanIdx != null ? clusters[keepFanIdx] : null;
   el.className = 'moving-marker';
   const svg = iconSvgHtml(movingIconType, 18);
   el.innerHTML = '<span class="core"></span>' +
     (svg ? `<span class="icon-badge" data-icon="${movingIconType}">${svg}</span>` : '');
   syncMovingMarkerPlaying();
-  if (keepBubble) setArrivalBubble(keepBubble);
-  if (keepFanCluster){
-    lastFanClusterIdx = null;
-    setPhotoFan(keepFanCluster, keepFanIdx);
-  }
+  if (keepBubble && arrivalMode === 'move') setArrivalBubble(keepBubble);
 }
 
 /* ============ Rendering: markers, list, route ============ */
@@ -1539,12 +1606,13 @@ const MAX_SEG_MS = 7000;
 
 function computeSegments(){
   if (clusters.length < 2){
-    segDurations = []; segZoom = []; segCenter = []; animTotal = 0;
+    segDurations = []; segDwells = []; segZoom = []; segCenter = []; animTotal = 0;
     $('timeline').classList.remove('show');
     return false;
   }
   $('timeline').classList.add('show');
   segDurations = [];
+  segDwells = clusters.map(c => dwellMsForCluster(c));
   segZoom = [];
   segCenter = [];
   for (let i = 0; i < clusters.length - 1; i++){
@@ -1555,8 +1623,7 @@ function computeSegments(){
     segZoom.push(fit.zoom);
     segCenter.push({ lon: fit.lon, lat: fit.lat });
   }
-  // dwell at every place + travel between them
-  animTotal = clusters.length * DWELL_MS + segDurations.reduce((sum, d) => sum + d, 0);
+  animTotal = segDwells.reduce((sum, d) => sum + d, 0) + segDurations.reduce((sum, d) => sum + d, 0);
   return true;
 }
 
@@ -1568,7 +1635,7 @@ function setupAnimation(){
   camLat = null;
   arrivalBubbleLabel = null;
   lastCamPhaseKey = null;
-  clearPhotoFan();
+  hideArrivalSlideshow();
   // defer camera to fitToClusters / playback; first frame only syncs marker + UI
   camFollow = false;
   if (map.getSource('route-progress')) map.getSource('route-progress').setData(emptyLine());
@@ -1620,8 +1687,13 @@ function renderFrame(elapsed, frameDt){
     a = c;
     b = clusters[Math.min(phase.clusterIdx + 1, n - 1)] || c;
     segT = phase.clusterIdx >= n - 1 ? 1 : 0;
-    setArrivalBubble(placeTitle(c));
-    setPhotoFan(c, phase.clusterIdx);
+    if (arrivalMode === 'popup'){
+      setArrivalBubble(null);
+      syncArrivalSlideshow(c, phase.clusterIdx, phase.t);
+    } else {
+      hideArrivalSlideshow();
+      setArrivalBubble(placeTitle(c));
+    }
   } else {
     const segIdx = phase.segIdx;
     a = clusters[segIdx];
@@ -1631,7 +1703,7 @@ function renderFrame(elapsed, frameDt){
     nearIdx = segT < 0.5 ? segIdx : Math.min(segIdx + 1, n - 1);
     reachedIdx = segT >= 0.98 ? Math.min(segIdx + 1, n - 1) : segIdx;
     setArrivalBubble(null);
-    clearPhotoFan();
+    hideArrivalSlideshow();
   }
 
   if (movingMarker) movingMarker.setLngLat([lon, lat]);
@@ -1640,12 +1712,13 @@ function renderFrame(elapsed, frameDt){
   if (camFollow){
     let targetZoom, targetLon, targetLat;
     if (phase.kind === 'dwell'){
-      if (phase.clusterIdx >= n - 1){
+      if (arrivalMode === 'popup' || phase.clusterIdx >= n - 1){
+        // Popup (or final stop): zoom into the current place
         targetZoom = LAST_DWELL_ZOOM;
         targetLon = lon;
         targetLat = lat;
       } else {
-        // Frame upcoming hop so both start and end stay on screen
+        // Move-only: frame upcoming hop so both start and end stay on screen
         targetZoom = segZoom[phase.clusterIdx] ?? LAST_DWELL_ZOOM;
         const sc = segCenter[phase.clusterIdx];
         targetLon = sc ? sc.lon : lon;
@@ -1757,7 +1830,7 @@ function playAnim(){
   const phase = phaseAtElapsed(animElapsed);
   let targetZoom, targetLon, targetLat;
   if (phase.kind === 'dwell'){
-    if (phase.clusterIdx >= clusters.length - 1){
+    if (arrivalMode === 'popup' || phase.clusterIdx >= clusters.length - 1){
       targetZoom = LAST_DWELL_ZOOM;
       targetLon = clusters[phase.clusterIdx].lon;
       targetLat = clusters[phase.clusterIdx].lat;
@@ -1797,7 +1870,7 @@ function stopAnim(){
   pauseAnim();
   animElapsed = 0;
   setArrivalBubble(null);
-  clearPhotoFan();
+  hideArrivalSlideshow();
   lastCamPhaseKey = null;
 }
 
@@ -1898,9 +1971,9 @@ function downloadBlob(blob, filename){
   setTimeout(() => URL.revokeObjectURL(url), 8000);
 }
 
-function drawExportFrame(ctx, outW, outH, markerImgs, exportIconImg, visitedSet, fanImgMap){
+function drawExportFrame(ctx, outW, outH, markerImgs, exportIconImg, visitedSet, slideImgMap){
   visitedSet = visitedSet || new Set();
-  fanImgMap = fanImgMap || null;
+  slideImgMap = slideImgMap || null;
   const mapCanvas = map.getCanvas();
   ctx.drawImage(mapCanvas, 0, 0, outW, outH);
   const sx = outW / mapCanvas.clientWidth;
@@ -1945,44 +2018,6 @@ function drawExportFrame(ctx, outW, outH, markerImgs, exportIconImg, visitedSet,
     const core = 7 * Math.min(sx, sy);
     const s = Math.min(sx, sy);
 
-    // photo fan behind marker chrome
-    if (arrivalFanPhotos.length && fanImgMap){
-      const n = arrivalFanPhotos.length;
-      arrivalFanPhotos.forEach((ph, i) => {
-        const img = fanImgMap.get(ph.url);
-        if (!img) return;
-        const angle = n === 1 ? -90 : (-150 + (120 * i) / Math.max(1, n - 1));
-        const rad = angle * Math.PI / 180;
-        const rr = 52 * s;
-        const fx = x + Math.cos(rad) * rr;
-        const fy = y + Math.sin(rad) * rr - 8 * s;
-        const size = 36 * s;
-        ctx.save();
-        ctx.beginPath();
-        const radCorner = 8 * s;
-        const bx = fx - size / 2, by = fy - size / 2;
-        ctx.moveTo(bx + radCorner, by);
-        ctx.arcTo(bx + size, by, bx + size, by + size, radCorner);
-        ctx.arcTo(bx + size, by + size, bx, by + size, radCorner);
-        ctx.arcTo(bx, by + size, bx, by, radCorner);
-        ctx.arcTo(bx, by, bx + size, by, radCorner);
-        ctx.closePath();
-        ctx.clip();
-        ctx.drawImage(img, bx, by, size, size);
-        ctx.restore();
-        ctx.beginPath();
-        ctx.moveTo(bx + radCorner, by);
-        ctx.arcTo(bx + size, by, bx + size, by + size, radCorner);
-        ctx.arcTo(bx + size, by + size, bx, by + size, radCorner);
-        ctx.arcTo(bx, by + size, bx, by, radCorner);
-        ctx.arcTo(bx, by, bx + size, by, radCorner);
-        ctx.closePath();
-        ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 2 * s;
-        ctx.stroke();
-      });
-    }
-
     ctx.beginPath();
     ctx.arc(x, y, core, 0, Math.PI * 2);
     ctx.fillStyle = progressColor;
@@ -1994,7 +2029,7 @@ function drawExportFrame(ctx, outW, outH, markerImgs, exportIconImg, visitedSet,
       const iw = 20 * Math.min(sx, sy);
       ctx.drawImage(exportIconImg, x - iw / 2, y - core - iw - 2 * sy, iw, iw);
     }
-    if (arrivalBubbleLabel){
+    if (arrivalBubbleLabel && arrivalMode === 'move'){
       const fontPx = Math.max(11, 12 * s);
       ctx.font = `600 ${fontPx}px sans-serif`;
       ctx.textAlign = 'center';
@@ -2028,6 +2063,72 @@ function drawExportFrame(ctx, outW, outH, markerImgs, exportIconImg, visitedSet,
       ctx.fillStyle = '#e8eaef';
       ctx.fillText(arrivalBubbleLabel, x, by + bh / 2, bw - padX * 2);
     }
+  }
+
+  // Popup slideshow card (screen-centered), matching the live overlay
+  if (arrivalMode === 'popup' && arrivalSlideState && slideImgMap){
+    const img = slideImgMap.get(arrivalSlideState.url);
+    const s = Math.min(sx, sy);
+    const cardW = Math.min(420 * s, outW * 0.72);
+    const pad = 14 * s;
+    const titleH = 28 * s;
+    const countH = 22 * s;
+    const photoH = cardW * 0.75;
+    const cardH = pad + titleH + photoH + countH + pad;
+    const cx = outW / 2;
+    const cy = outH / 2;
+    const bx = cx - cardW / 2;
+    const by = cy - cardH / 2;
+    const rr = 16 * s;
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(bx + rr, by);
+    ctx.arcTo(bx + cardW, by, bx + cardW, by + cardH, rr);
+    ctx.arcTo(bx + cardW, by + cardH, bx, by + cardH, rr);
+    ctx.arcTo(bx, by + cardH, bx, by, rr);
+    ctx.arcTo(bx, by, bx + cardW, by, rr);
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(18,21,28,0.92)';
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.14)';
+    ctx.lineWidth = 1 * s;
+    ctx.stroke();
+
+    ctx.fillStyle = '#e8eaef';
+    ctx.font = `600 ${Math.max(13, 16 * s)}px sans-serif`;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(arrivalSlideState.title || '', bx + pad, by + pad + titleH / 2, cardW - pad * 2);
+
+    const px = bx + pad;
+    const py = by + pad + titleH;
+    const pw = cardW - pad * 2;
+    const ph = photoH;
+    const pr = 12 * s;
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(px + pr, py);
+    ctx.arcTo(px + pw, py, px + pw, py + ph, pr);
+    ctx.arcTo(px + pw, py + ph, px, py + ph, pr);
+    ctx.arcTo(px, py + ph, px, py, pr);
+    ctx.arcTo(px, py, px + pw, py, pr);
+    ctx.closePath();
+    ctx.clip();
+    if (img) ctx.drawImage(img, px, py, pw, ph);
+    else { ctx.fillStyle = '#212736'; ctx.fillRect(px, py, pw, ph); }
+    ctx.restore();
+
+    ctx.fillStyle = '#8b93a7';
+    ctx.font = `500 ${Math.max(11, 12 * s)}px sans-serif`;
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(
+      (arrivalSlideState.index + 1) + ' / ' + arrivalSlideState.total,
+      bx + cardW - pad,
+      by + cardH - pad - countH / 2
+    );
+    ctx.restore();
   }
 }
 
@@ -2082,7 +2183,7 @@ async function recordAndDownload(){
   badge.textContent = '녹화 준비 중…';
 
   const chrome = [
-    $('timeline'), $('btnFitAll'), $('sidebarToggle'), $('detailpanel'),
+    $('timeline'), $('btnFitAll'), $('sidebarToggle'), $('detailpanel'), $('arrivalSlideshow'),
     ...document.querySelectorAll('.maplibregl-ctrl')
   ].filter(Boolean);
   chrome.forEach(el => {
@@ -2093,7 +2194,7 @@ async function recordAndDownload(){
   try {
     animElapsed = 0;
     lastCamPhaseKey = null;
-    clearPhotoFan();
+    hideArrivalSlideshow();
     setArrivalBubble(null);
 
     // Video opens on whole-trip overview (same scale as after load / fit-all)
@@ -2109,13 +2210,13 @@ async function recordAndDownload(){
     const ctx = out.getContext('2d', { alpha: false });
 
     const markerImgs = await Promise.all(clusters.map(c => loadImage(c.rep.url)));
-    const fanImgMap = new Map();
-    const fanUrls = [];
-    clusters.forEach(c => c.photos.slice(0, PHOTO_FAN_MAX).forEach(p => {
-      if (!fanImgMap.has(p.url)){ fanImgMap.set(p.url, null); fanUrls.push(p.url); }
+    const slideImgMap = new Map();
+    const slideUrls = [];
+    clusters.forEach(c => slidePhotosForCluster(c).forEach(p => {
+      if (!slideImgMap.has(p.url)){ slideImgMap.set(p.url, null); slideUrls.push(p.url); }
     }));
-    await Promise.all(fanUrls.map(async url => {
-      fanImgMap.set(url, await loadImage(url));
+    await Promise.all(slideUrls.map(async url => {
+      slideImgMap.set(url, await loadImage(url));
     }));
     const iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="${progressColor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${MARKER_ICON_PATHS[movingIconType] || ''}</svg>`;
     const exportIconImg = await loadImage('data:image/svg+xml;charset=utf-8,' + encodeURIComponent(iconSvg));
@@ -2139,7 +2240,7 @@ async function recordAndDownload(){
     const overviewFrames = Math.max(1, Math.round((OVERVIEW_HOLD_MS / speed) / frameDt));
     if (movingMarker) movingMarker.setLngLat([clusters[0].lon, clusters[0].lat]);
     for (let i = 0; i < overviewFrames; i++){
-      drawExportFrame(ctx, out.width, out.height, markerImgs, exportIconImg, new Set([0]), fanImgMap);
+      drawExportFrame(ctx, out.width, out.height, markerImgs, exportIconImg, new Set([0]), slideImgMap);
       await waitMapFrame();
       await new Promise(r => setTimeout(r, Math.max(8, frameDt - 4)));
     }
@@ -2163,7 +2264,7 @@ async function recordAndDownload(){
       await waitMapFrame();
       const visited = new Set();
       markers.forEach((m, i) => { if (m._el.classList.contains('visited')) visited.add(i); });
-      drawExportFrame(ctx, out.width, out.height, markerImgs, exportIconImg, visited, fanImgMap);
+      drawExportFrame(ctx, out.width, out.height, markerImgs, exportIconImg, visited, slideImgMap);
       const pct = Math.round((animElapsed / animTotal) * 100);
       btn.textContent = pct + '%';
       badge.textContent = '녹화 중 ' + pct + '%';
@@ -2173,7 +2274,7 @@ async function recordAndDownload(){
     // hold last frame briefly
     const visitedEnd = new Set(clusters.map((_, i) => i));
     for (let i = 0; i < Math.round(fps * 0.7); i++){
-      drawExportFrame(ctx, out.width, out.height, markerImgs, exportIconImg, visitedEnd, fanImgMap);
+      drawExportFrame(ctx, out.width, out.height, markerImgs, exportIconImg, visitedEnd, slideImgMap);
       await new Promise(r => setTimeout(r, frameDt));
     }
 
