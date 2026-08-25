@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>여행 트레커</title>
+<link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/exifr@7.1.3/dist/full.umd.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=IBM+Plex+Sans+KR:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="style.css" rel="stylesheet">
+</head>
+<body>
+<div id="app">
+  <div id="recordStatus" aria-live="polite"></div>
+  <div id="sidebar">
+    <h1>📍 여행 트레커 <button id="sidebarClose">✕</button></h1>
+    <div class="hint">폴더를 선택하면 안의 모든 사진(하위 폴더 포함)을 읽어 GPS/촬영시각을 추출합니다. 사진은 서버로 전송되지 않고 브라우저 안에서만 처리됩니다.</div>
+    <div class="ios-hint" id="iosHint">📱 iPhone은 "폴더 선택"이 지원되지 않습니다. 아래 <b>🖼️ 사진 여러 장 선택</b> 버튼으로 갤러리에서 사진을 여러 장 골라주세요.</div>
+
+    <div class="dropzone" id="dropzone">
+      사진 폴더를 여기로 <b>드래그 앤 드롭</b>하거나<br>아래 버튼으로 선택하세요
+    </div>
+    <div class="btnrow">
+      <button class="btn-primary" id="btnFolder">📁 폴더 선택</button>
+      <button class="btn-icon" id="btnFiles" title="폴더 선택이 안 될 때: 사진 여러 장 직접 선택">🖼️</button>
+    </div>
+
+    <div id="progress">
+      <span id="progressText">분석 중...</span>
+      <div class="bar"><i id="progressBar"></i></div>
+    </div>
+
+    <div id="stats" style="display:none;">
+      <div class="trip-title-row">
+        <div style="flex:1;min-width:0;">
+          <div class="tt-label">여행 제목</div>
+          <div class="tt-name" id="tripTitleLabel">나의 여행</div>
+        </div>
+        <button type="button" class="tt-edit" id="btnTripTitle" title="여행 제목 바꾸기">✏️</button>
+      </div>
+      <div class="stat"><div class="n" id="statTotal">0</div><div class="l">전체 사진</div></div>
+      <div class="stat"><div class="n" id="statGeo">0</div><div class="l">GPS 있음</div></div>
+      <div class="stat"><div class="n" id="statPlaces">0</div><div class="l">장소(클러스터)</div></div>
+      <div class="stat"><div class="n" id="statRange" style="font-size:12px;">-</div><div class="l">기간</div></div>
+    </div>
+
+    <div id="controls">
+      <div class="ctrl-row">
+        <span>여행 스케일</span>
+      </div>
+      <div id="scalePicker" class="scale-picker">
+        <button class="scale-btn" data-scale="day"><span class="scale-emoji">🏘️</span><span>하루 나들이</span></button>
+        <button class="scale-btn" data-scale="city"><span class="scale-emoji">🏙️</span><span>도시간 이동</span></button>
+        <button class="scale-btn" data-scale="country"><span class="scale-emoji">🌏</span><span>국가간 이동</span></button>
+      </div>
+
+      <div class="ctrl-row" style="margin-top:10px;">
+        <span>이동 마커 모양</span>
+      </div>
+      <div id="iconPicker" class="icon-picker"></div>
+
+      <div class="ctrl-row" style="margin-top:10px;">
+        <span>전체 경로 색</span>
+      </div>
+      <div id="pathColorPicker" class="color-picker" data-role="path"></div>
+
+      <div class="ctrl-row" style="margin-top:10px;">
+        <span>지나간 경로·마커 색</span>
+      </div>
+      <div id="progressColorPicker" class="color-picker" data-role="progress"></div>
+
+      <div class="ctrl-row arrival-mode-row">
+        <span>도착 연출</span>
+      </div>
+      <div id="arrivalModePicker" class="mode-picker">
+        <button type="button" class="mode-btn active" data-mode="move">이동만
+          <span class="mode-sub">상단 진행 바만</span>
+        </button>
+        <button type="button" class="mode-btn" data-mode="popup">팝업
+          <span class="mode-sub">상단 바 + 사진 슬라이드</span>
+        </button>
+      </div>
+    </div>
+
+    <div id="empty">
+      아직 불러온 사진이 없습니다.<br>왼쪽 위 버튼으로 폴더를 선택해 보세요.
+    </div>
+    <div id="placelist"></div>
+  </div>
+
+  <div id="mapwrap">
+    <div id="map"></div>
+    <button id="sidebarToggle">☰</button>
+    <div id="backdrop"></div>
+
+    <div id="topProgress" aria-hidden="true">
+      <div class="tp-order" id="tpOrder">01 / 01</div>
+      <div class="tp-name" id="tpName">장소</div>
+    </div>
+
+    <div id="tripIntro" aria-hidden="true">
+      <div class="ti-card">
+        <div class="ti-title" id="tiTitle">나의 여행</div>
+        <div class="ti-days" id="tiDays">DAY TRIP</div>
+        <div class="ti-range" id="tiRange">-</div>
+      </div>
+    </div>
+
+    <div id="spotCard" aria-hidden="true">
+      <div class="sc-photo-wrap" id="scPhotoWrap">
+        <div class="sc-photo" id="scPhoto"></div>
+        <div class="sc-slide-count" id="scSlideCount"></div>
+      </div>
+    </div>
+    <div id="dayBanner" aria-hidden="true"></div>
+    <div id="endSummary" aria-hidden="true">
+      <div class="es-card">
+        <div class="es-row">
+          <div><div class="es-n" id="esSpots">0</div><div class="es-l">SPOTS</div></div>
+          <div><div class="es-n" id="esPhotos">0</div><div class="es-l">PHOTOS</div></div>
+          <div><div class="es-n" id="esDays">DAY TRIP</div><div class="es-l">DAYS</div></div>
+          <div><div class="es-n" id="esKm">0</div><div class="es-l">KM</div></div>
+        </div>
+        <div class="es-note">사진 촬영 위치 간 직선거리 기준</div>
+      </div>
+    </div>
+
+    <div id="detailpanel">
+      <div class="dp-head">
+        <div>
+          <div class="dp-title-row">
+            <div class="dp-title" id="dpTitle">장소</div>
+            <button class="dp-edit" id="dpEdit" title="이름 바꾸기">✏️</button>
+          </div>
+          <div class="dp-sub" id="dpSub"></div>
+        </div>
+        <div class="dp-head-actions">
+          <button class="dp-del" id="dpDel" title="이 장소 삭제">🗑️</button>
+          <button class="dp-close" id="dpClose">✕</button>
+        </div>
+      </div>
+      <div class="dp-grid" id="dpGrid"></div>
+    </div>
+
+    <button id="btnFitAll" title="내 여행 전체 보기" aria-label="내 여행 전체 보기">⛶</button>
+
+    <div id="timeline">
+      <button id="btnPlay" title="미리보기로 동선 재생">▶ 미리보기</button>
+      <button id="btnRecord" title="동선 재생을 동영상으로 저장">📥 저장</button>
+      <div class="tl-mid">
+        <input type="range" id="tlRange" min="0" max="1000" value="0">
+        <div class="tl-labels">
+          <span id="tlNow">-</span>
+          <span id="tlPlace">-</span>
+          <span id="tlEnd">-</span>
+        </div>
+      </div>
+      <select id="tlSpeed">
+        <option value="0.5">0.5×</option>
+        <option value="1" selected>1×</option>
+        <option value="2">2×</option>
+        <option value="4">4×</option>
+      </select>
+      <button class="btn-icon" id="btnReplay" title="처음으로" style="border-radius:8px;width:auto;padding:0 10px;">⟲</button>
+    </div>
+  </div>
+</div>
+
+<div id="lightbox">
+  <button class="lb-close" id="lbClose">✕</button>
+  <button class="lb-del" id="lbDel" title="이 사진 삭제">🗑️</button>
+  <button class="lb-nav lb-prev" id="lbPrev">‹</button>
+  <img id="lbImg" src="">
+  <div class="lb-info" id="lbInfo"></div>
+  <button class="lb-nav lb-next" id="lbNext">›</button>
+</div>
+
+<input type="file" id="folderInput" webkitdirectory directory multiple hidden>
+<input type="file" id="filesInput" accept="image/*" multiple hidden>
+
+<script>window.APP_MODE='overview';</script>
+<script src="app.js"></script>
+</body>
+</html>
