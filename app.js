@@ -105,7 +105,9 @@ try {
   if (savedTitle != null && savedTitle !== '') tripTitleCustom = savedTitle;
 } catch (e) { /* ignore */ }
 
-let topProgressState = null;
+let dayTimelineState = null;  // {day, name} of current place, for the simplified canvas-export badge
+let dayTimelineItems = {};    // day number -> .dt-item element
+let dayLastIdx = {};          // day number -> last cluster index belonging to that day
 let tripIntroVisible = false;
 
 const $ = (id) => document.getElementById(id);
@@ -498,54 +500,58 @@ function showSpotCardPhoto(cluster, clusterIdx, dwellT){
   }
 }
 
-function hideTopProgress(){
-  topProgressState = null;
-  const el = $('topProgress');
+/**
+ * Day timeline (persistent, always visible once a trip is loaded — replaces the old
+ * single-place topProgress toast). Rebuilt whenever clusters change; state (current/done)
+ * updated every frame from renderFrame()/renderIntroFrame().
+ */
+function renderDayTimeline(){
+  const el = $('dayTimeline');
   if (!el) return;
-  el.classList.remove('show', 'swap');
-  el.setAttribute('aria-hidden', 'true');
+  el.innerHTML = '';
+  dayTimelineItems = {};
+  dayLastIdx = {};
+  clusters.forEach((c, i) => {
+    if (!dayTimelineItems[c.day]){
+      const item = document.createElement('div');
+      item.className = 'dt-item';
+      item.dataset.day = c.day;
+      const label = document.createElement('div');
+      label.className = 'dt-label';
+      label.textContent = 'DAY ' + c.day;
+      const place = document.createElement('div');
+      place.className = 'dt-place';
+      place.textContent = placeTitle(c);
+      const date = document.createElement('div');
+      date.className = 'dt-date';
+      date.textContent = fmtDateShort(c.startTime);
+      item.appendChild(label);
+      item.appendChild(place);
+      item.appendChild(date);
+      el.appendChild(item);
+      dayTimelineItems[c.day] = item;
+    }
+    dayLastIdx[c.day] = i;
+  });
+  el.setAttribute('aria-hidden', clusters.length ? 'false' : 'true');
 }
 
-function showTopProgress(cluster, idx){
-  if (!cluster){ hideTopProgress(); return; }
-  const el = $('topProgress');
-  if (!el) return;
-  const dayNum = cluster.day;
-  const order = 'DAY ' + dayNum;
-  const name = placeTitle(cluster); // kept for the canvas-export card, which stays single-line
-  const prevIdx = topProgressState ? topProgressState.idx : null;
-  topProgressState = { order, name, idx, day: dayNum };
-  $('tpOrder').textContent = order;
-
-  // Breadcrumb of every place visited/upcoming today, current one highlighted — built with
-  // DOM nodes (not innerHTML string interpolation) since place names come from user input
-  // or reverse-geocoding.
-  const nameEl = $('tpName');
-  nameEl.innerHTML = '';
-  clusters.filter(c => c.day === dayNum).forEach((c, i) => {
-    if (i > 0){
-      const sep = document.createElement('span');
-      sep.className = 'crumb-sep';
-      sep.textContent = '›';
-      nameEl.appendChild(sep);
-    }
-    const crumb = document.createElement('span');
-    crumb.className = 'crumb' + (c === cluster ? ' active' : '');
-    crumb.textContent = placeTitle(c);
-    nameEl.appendChild(crumb);
+function updateDayTimeline(cluster, reachedIdx){
+  if (!cluster) return;
+  const currentDay = cluster.day;
+  dayTimelineState = { day: currentDay, name: placeTitle(cluster) };
+  Object.keys(dayTimelineItems).forEach(dayKey => {
+    const day = Number(dayKey);
+    const item = dayTimelineItems[day];
+    const done = day !== currentDay && reachedIdx != null && dayLastIdx[day] <= reachedIdx;
+    item.classList.toggle('current', day === currentDay);
+    item.classList.toggle('done', done);
   });
+}
 
-  const already = el.classList.contains('show');
-  if (already && prevIdx != null && prevIdx !== idx){
-    el.classList.add('swap');
-    requestAnimationFrame(() => {
-      el.classList.remove('swap');
-      el.classList.add('show');
-    });
-  } else {
-    el.classList.add('show');
-  }
-  el.setAttribute('aria-hidden', 'false');
+function resetDayTimeline(){
+  dayTimelineState = null;
+  Object.values(dayTimelineItems).forEach(item => item.classList.remove('current', 'done'));
 }
 
 function hideTripIntro(){
@@ -605,6 +611,10 @@ function showEndSummary(){
   $('esKm').textContent = km < 10 ? km.toFixed(1) : String(Math.round(km));
   el.classList.add('show');
   el.setAttribute('aria-hidden', 'false');
+  Object.values(dayTimelineItems).forEach(item => {
+    item.classList.remove('current');
+    item.classList.add('done');
+  });
   if (endSummaryTimer) clearTimeout(endSummaryTimer);
   endSummaryTimer = setTimeout(hideEndSummary, 5000);
 }
@@ -886,6 +896,8 @@ function resetState(){
   stopAnim(); animElapsed = 0;
   camZoom = null; camLon = null; camLat = null; camFollow = (OVERVIEW_MODE ? false : true);
   $('placelist').innerHTML = '';
+  $('dayTimeline').innerHTML = '';
+  dayTimelineItems = {}; dayLastIdx = {}; dayTimelineState = null;
   closeDetail();
   $('timeline').classList.remove('show');
   $('btnFitAll').classList.remove('show');
@@ -950,6 +962,7 @@ function buildClusters(radiusM, opts){
   $('statRange').textContent = fmtDateShort(first) + ' ~ ' + fmtDateShort(last);
 
   renderPlaceList();
+  renderDayTimeline();
   renderMarkers();
   renderRoute();
   $('btnFitAll').classList.toggle('show', clusters.length > 0);
@@ -1019,6 +1032,11 @@ function updateClusterLabel(idx){
   const c = clusters[idx];
   if (!c) return;
   document.querySelectorAll(`#placelist .place[data-idx="${idx}"] .name`).forEach(el => { el.textContent = placeLabel(c); });
+  if (clusters.findIndex(x => x.day === c.day) === idx){
+    const item = dayTimelineItems[c.day];
+    const place = item && item.querySelector('.dt-place');
+    if (place) place.textContent = placeTitle(c);
+  }
   if (activeCluster === idx){
     $('dpTitle').textContent = placeLabel(c);
   }
@@ -1352,6 +1370,7 @@ $('dpEdit').addEventListener('click', () => {
   if (val === null) return;
   c.customName = val.trim() || undefined;
   renderPlaceList();
+  renderDayTimeline();
   refreshTripTitleUI();
   selectCluster(activeCluster, false);
 });
@@ -1524,7 +1543,7 @@ function setupAnimation(){
   hideSpotCard();
   hideDayBanner();
   hideEndSummary();
-  hideTopProgress();
+  resetDayTimeline();
   hideTripIntro();
   camFollow = false;
   cineMode = 'idle';
@@ -1606,11 +1625,7 @@ function renderFrame(elapsed, frameDt){
       hideDayBanner();
     }
     setArrivalBubble(null);
-    if (isPlaying || isRecording || cineMode === 'main' || (cineMode === 'intro' && cineStage >= 2)){
-      showTopProgress(c, phase.clusterIdx);
-    } else {
-      hideTopProgress();
-    }
+    updateDayTimeline(c, reachedIdx);
     if (arrivalMode === 'popup') showSpotCardPhoto(c, phase.clusterIdx, phase.t);
     else hideSpotCard();
   } else {
@@ -1626,11 +1641,7 @@ function renderFrame(elapsed, frameDt){
     setArrivalBubble(null);
     hideSpotCard();
     hideDayBanner();
-    if (isPlaying || isRecording || cineMode === 'main' || (cineMode === 'intro' && cineStage >= 2)){
-      showTopProgress(clusters[nearIdx], nearIdx);
-    } else {
-      hideTopProgress();
-    }
+    updateDayTimeline(clusters[nearIdx], reachedIdx);
   }
 
   if (movingMarker) movingMarker.setLngLat([lon, lat]);
@@ -1712,11 +1723,9 @@ function renderIntroFrame(dtSec){
     camLon = overviewLon; camLat = overviewLat; camZoom = overviewZoom;
     if (!OVERVIEW_MODE) map.jumpTo({ center: [camLon, camLat], zoom: camZoom });
     showTripIntro();
-    hideTopProgress();
     hideSpotCard();
   } else if (cineStage === 1){
     hideTripIntro();
-    hideTopProgress();
     const t = Math.min(1, cineElapsed / INTRO_ZOOM_MS);
     const e = easeTravel(t);
     camLon = overviewLon + (c0.lon - overviewLon) * e;
@@ -1727,7 +1736,7 @@ function renderIntroFrame(dtSec){
     hideTripIntro();
     camLon = c0.lon; camLat = c0.lat; camZoom = arrivalZoom;
     if (!OVERVIEW_MODE) map.jumpTo({ center: [camLon, camLat], zoom: camZoom });
-    showTopProgress(c0, 0);
+    updateDayTimeline(c0, 0);
     if (arrivalMode === 'popup') showSpotCardPhoto(c0, 0, 0);
     else hideSpotCard();
     popPinAt(0);
@@ -1760,7 +1769,7 @@ function startCineIntro(){
   hideEndSummary();
   hideSpotCard();
   hideDayBanner();
-  hideTopProgress();
+  resetDayTimeline();
   showTripIntro();
   if (movingMarker) movingMarker.setLngLat([clusters[0].lon, clusters[0].lat]);
 }
@@ -1768,7 +1777,6 @@ function startCineIntro(){
 function startCineOutro(){
   hideSpotCard();
   hideDayBanner();
-  hideTopProgress();
   hideTripIntro();
   setArrivalBubble(null);
   camFollow = false;
@@ -1911,7 +1919,7 @@ function stopAnim(){
   hideSpotCard();
   hideDayBanner();
   hideEndSummary();
-  hideTopProgress();
+  resetDayTimeline();
   hideTripIntro();
   lastCamPhaseKey = null;
   lastPopPinIdx = null;
@@ -2105,16 +2113,19 @@ function drawExportFrame(ctx, outW, outH, markerImgs, exportIconImg, visitedSet,
     }
   }
 
-  // Unified overlays: top progress bar (dark pill + pin badge, matches #topProgress CSS) + bottom photo (popup only)
-  if (topProgressState && !tripIntroVisible){
+  // Unified overlays: simplified "DAY N + current place" badge (full day-timeline breadcrumb
+  // is DOM-only — replicating its wrapped multi-day layout in canvas isn't worth the complexity)
+  // + bottom photo (popup only)
+  if (dayTimelineState && !tripIntroVisible){
     const s = Math.min(sx, sy);
     const badgeD = 28 * s;
     const padY = 8 * s, padL = 8 * s, padR = 16 * s, gap = 10 * s;
-    const name = topProgressState.name || '';
+    const name = dayTimelineState.name || '';
+    const order = 'DAY ' + dayTimelineState.day;
     ctx.font = `600 ${Math.max(13, 15 * s)}px sans-serif`;
     const nameW = ctx.measureText(name).width;
     ctx.font = `700 ${Math.max(10, 10.5 * s)}px sans-serif`;
-    const orderW = ctx.measureText(topProgressState.order).width;
+    const orderW = ctx.measureText(order).width;
     const textW = Math.max(orderW, nameW);
     const cardH = Math.max(badgeD + padY * 2, 44 * s);
     const cardW = Math.min(padL + badgeD + gap + textW + padR, outW * 0.78);
@@ -2139,7 +2150,7 @@ function drawExportFrame(ctx, outW, outH, markerImgs, exportIconImg, visitedSet,
     const badgeCy = by + cardH / 2;
     ctx.beginPath();
     ctx.arc(badgeCx, badgeCy, badgeD / 2, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(77,159,255,0.22)';
+    ctx.fillStyle = 'rgba(46,178,124,0.25)';
     ctx.fill();
     ctx.font = `${Math.max(12, 14 * s)}px sans-serif`;
     ctx.textAlign = 'center';
@@ -2149,9 +2160,9 @@ function drawExportFrame(ctx, outW, outH, markerImgs, exportIconImg, visitedSet,
     const textX = bx + padL + badgeD + gap;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
-    ctx.fillStyle = '#4d9fff';
+    ctx.fillStyle = '#2eb27c';
     ctx.font = `700 ${Math.max(10, 10.5 * s)}px sans-serif`;
-    ctx.fillText(topProgressState.order, textX, by + cardH / 2 - 13 * s, cardW - (textX - bx) - padR);
+    ctx.fillText(order, textX, by + cardH / 2 - 13 * s, cardW - (textX - bx) - padR);
     ctx.fillStyle = '#e8ebf3';
     ctx.font = `600 ${Math.max(13, 15 * s)}px sans-serif`;
     ctx.fillText(name, textX, by + cardH / 2 - 1 * s, cardW - (textX - bx) - padR);
@@ -2444,7 +2455,7 @@ async function recordAndDownload(){
     hideSpotCard();
     hideDayBanner();
     hideEndSummary();
-    hideTopProgress();
+    resetDayTimeline();
     hideTripIntro();
     setArrivalBubble(null);
     // Leftover active/visited state from an earlier preview run would otherwise show
@@ -2755,7 +2766,7 @@ $('btnReplay').addEventListener('click', () => {
   hideSpotCard();
   hideDayBanner();
   hideEndSummary();
-  hideTopProgress();
+  resetDayTimeline();
   hideTripIntro();
   camFollow = false;
   camZoom = null; camLon = null; camLat = null;
