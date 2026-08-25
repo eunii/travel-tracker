@@ -85,7 +85,7 @@ const CAM_ZOOM_DEADBAND = 0.04;
 const DWELL_MS = 700;
 const SLIDE_MS = 650;
 const PHOTO_SLIDE_MAX = 6;
-const INTRO_OVERVIEW_MS = 700;
+const INTRO_OVERVIEW_MS = 2200;
 const INTRO_ZOOM_MS = 600;
 const INTRO_HOLD_MS = 350;
 const OUTRO_HOLD_MS = 400;
@@ -511,12 +511,30 @@ function showTopProgress(cluster, idx){
   if (!cluster){ hideTopProgress(); return; }
   const el = $('topProgress');
   if (!el) return;
-  const order = String(idx + 1).padStart(2, '0') + ' / ' + String(clusters.length).padStart(2, '0');
-  const name = placeTitle(cluster);
+  const dayNum = cluster.day;
+  const order = 'DAY ' + dayNum;
+  const name = placeTitle(cluster); // kept for the canvas-export card, which stays single-line
   const prevIdx = topProgressState ? topProgressState.idx : null;
-  topProgressState = { order, name, idx };
+  topProgressState = { order, name, idx, day: dayNum };
   $('tpOrder').textContent = order;
-  $('tpName').textContent = name;
+
+  // Breadcrumb of every place visited/upcoming today, current one highlighted — built with
+  // DOM nodes (not innerHTML string interpolation) since place names come from user input
+  // or reverse-geocoding.
+  const nameEl = $('tpName');
+  nameEl.innerHTML = '';
+  clusters.filter(c => c.day === dayNum).forEach((c, i) => {
+    if (i > 0){
+      const sep = document.createElement('span');
+      sep.className = 'crumb-sep';
+      sep.textContent = '›';
+      nameEl.appendChild(sep);
+    }
+    const crumb = document.createElement('span');
+    crumb.className = 'crumb' + (c === cluster ? ' active' : '');
+    crumb.textContent = placeTitle(c);
+    nameEl.appendChild(crumb);
+  });
 
   const already = el.classList.contains('show');
   if (already && prevIdx != null && prevIdx !== idx){
@@ -568,7 +586,10 @@ function showDayBanner(text){
   el.setAttribute('aria-hidden', 'false');
 }
 
+let endSummaryTimer = null;
+
 function hideEndSummary(){
+  if (endSummaryTimer){ clearTimeout(endSummaryTimer); endSummaryTimer = null; }
   const el = $('endSummary');
   if (!el) return;
   el.classList.remove('show');
@@ -585,6 +606,8 @@ function showEndSummary(){
   $('esKm').textContent = km < 10 ? km.toFixed(1) : String(Math.round(km));
   el.classList.add('show');
   el.setAttribute('aria-hidden', 'false');
+  if (endSummaryTimer) clearTimeout(endSummaryTimer);
+  endSummaryTimer = setTimeout(hideEndSummary, 5000);
 }
 
 function popPinAt(idx){
@@ -845,6 +868,7 @@ async function handleFileList(files){
   $('statTotal').textContent = imageFiles.length;
   $('statGeo').textContent = allPhotos.length;
   $('stats').style.display = 'grid';
+  $('tripTitleTab').style.display = 'flex';
   $('empty').style.display = allPhotos.length ? 'none' : 'block';
   if (allPhotos.length === 0){
     $('empty').textContent = 'GPS 정보가 있는 사진을 찾지 못했습니다. (스크린샷/다운로드된 이미지는 보통 GPS가 없습니다)';
@@ -1368,6 +1392,7 @@ function deletePhotos(photos, opts){
     $('lightbox').classList.remove('show');
     resetState();
     $('stats').style.display = 'none';
+    $('tripTitleTab').style.display = 'none';
     $('empty').innerHTML = '아직 불러온 사진이 없습니다.<br>왼쪽 위 버튼으로 폴더를 선택해 보세요.';
     $('empty').style.display = 'block';
     return;
@@ -2710,6 +2735,19 @@ async function recordViaCanvas({ mime, kind, btn }){
   setRecordStatus('MP4 저장 완료');
   await new Promise(r => setTimeout(r, 600));
 }
+
+(() => {
+  const card = document.querySelector('#endSummary .es-card');
+  if (!card) return;
+  let startY = null;
+  card.addEventListener('click', () => hideEndSummary());
+  card.addEventListener('pointerdown', e => { startY = e.clientY; });
+  card.addEventListener('pointermove', e => {
+    if (startY == null) return;
+    if (e.clientY - startY > 40){ hideEndSummary(); startY = null; }
+  });
+  card.addEventListener('pointerup', () => { startY = null; });
+})();
 
 $('btnPlay').addEventListener('click', () => {
   if (isRecording) return;
