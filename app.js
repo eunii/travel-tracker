@@ -1957,11 +1957,38 @@ function loadImage(url){
 }
 
 /**
+ * Approximates the .icon-badge[data-icon] CSS @keyframes (style.css mm-fly/mm-hop/etc)
+ * for the canvas export path, which draws a static icon image instead of an animated
+ * DOM element. Runs on wall-clock time like the CSS animations do (unaffected by the
+ * timeline speed multiplier).
+ */
+function exportIconWiggle(iconType, tMs){
+  const tri = period => { const f = (tMs % period) / period; return f < 0.5 ? f / 0.5 : 1 - (f - 0.5) / 0.5; };
+  const lerp = (a, b, f) => a + (b - a) * f;
+  switch (iconType){
+    case 'airplane': { const f = tri(1100); return { dx: lerp(0, 3, f), dy: lerp(0, -4, f), rot: lerp(-8, 8, f), scale: 1 }; }
+    case 'heart': return { dx: 0, dy: 0, rot: 0, scale: lerp(1, 1.14, tri(700)) };
+    case 'moon': return { dx: 0, dy: 0, rot: lerp(-12, 12, tri(1600)), scale: 1 };
+    case 'chess-king': return { dx: 0, dy: 0, rot: lerp(-12, 12, tri(1800)), scale: 1 };
+    case 'rabbit': {
+      const period = 550, f = (tMs % period) / period;
+      const dy = f < 0.4 ? lerp(0, -6, f / 0.4) : f < 0.6 ? lerp(-6, -2, (f - 0.4) / 0.2) : lerp(-2, 0, (f - 0.6) / 0.4);
+      return { dx: 0, dy, rot: 0, scale: 1 };
+    }
+    case 'ship': { const f = tri(1400); return { dx: 0, dy: lerp(0, 2, f), rot: lerp(-6, 6, f), scale: 1 }; }
+    case 'truck': { const a = tMs / 450 * Math.PI * 2; return { dx: Math.sin(a), dy: -Math.sin(a), rot: 0, scale: 1 }; }
+    case 'smile': return { dx: 0, dy: lerp(0, -3, tri(1000)), rot: 0, scale: 1 };
+    case 'users': return { dx: 0, dy: lerp(0, -3, tri(1100)), rot: 0, scale: 1 };
+    default: return { dx: 0, dy: 0, rot: 0, scale: 1 };
+  }
+}
+
+/**
  * iOS fallback recording path: redraw the map canvas + pins + overlay cards onto an
  * offscreen canvas every frame (used with canvas.captureStream, see recordViaCanvas).
  * iOS has no getDisplayMedia/CropTarget, so there is no way to record the real DOM there.
  */
-function drawExportFrame(ctx, outW, outH, markerImgs, exportIconImg, visitedSet, slideImgMap){
+function drawExportFrame(ctx, outW, outH, markerImgs, exportIconImg, visitedSet, slideImgMap, nowMs){
   visitedSet = visitedSet || new Set();
   slideImgMap = slideImgMap || null;
   const mapCanvas = map.getCanvas();
@@ -2017,7 +2044,15 @@ function drawExportFrame(ctx, outW, outH, markerImgs, exportIconImg, visitedSet,
     ctx.stroke();
     if (exportIconImg){
       const iw = 20 * Math.min(sx, sy);
-      ctx.drawImage(exportIconImg, x - iw / 2, y - core - iw - 2 * sy, iw, iw);
+      const wig = exportIconWiggle(movingIconType, nowMs || 0);
+      const icx = x + wig.dx * s;
+      const icy = y - core - iw - 2 * sy + wig.dy * s;
+      ctx.save();
+      ctx.translate(icx + iw / 2, icy + iw / 2);
+      ctx.rotate(wig.rot * Math.PI / 180);
+      ctx.scale(wig.scale, wig.scale);
+      ctx.drawImage(exportIconImg, -iw / 2, -iw / 2, iw, iw);
+      ctx.restore();
     }
     if (arrivalBubbleLabel && arrivalMode === 'move' && !spotCardState){
       const fontPx = Math.max(11, 12 * s);
@@ -2055,20 +2090,22 @@ function drawExportFrame(ctx, outW, outH, markerImgs, exportIconImg, visitedSet,
     }
   }
 
-  // Unified overlays: top progress bar + bottom photo (popup only)
+  // Unified overlays: top progress bar (dark pill + pin badge, matches #topProgress CSS) + bottom photo (popup only)
   if (topProgressState && !tripIntroVisible){
     const s = Math.min(sx, sy);
-    const pad = 10 * s;
+    const badgeD = 28 * s;
+    const padY = 8 * s, padL = 8 * s, padR = 16 * s, gap = 10 * s;
     const name = topProgressState.name || '';
     ctx.font = `600 ${Math.max(13, 15 * s)}px sans-serif`;
     const nameW = ctx.measureText(name).width;
-    ctx.font = `700 ${Math.max(10, 11 * s)}px sans-serif`;
+    ctx.font = `700 ${Math.max(10, 10.5 * s)}px sans-serif`;
     const orderW = ctx.measureText(topProgressState.order).width;
-    const cardW = Math.min(Math.max(orderW, nameW) + pad * 2, outW * 0.72);
-    const cardH = 48 * s;
+    const textW = Math.max(orderW, nameW);
+    const cardH = Math.max(badgeD + padY * 2, 44 * s);
+    const cardW = Math.min(padL + badgeD + gap + textW + padR, outW * 0.78);
     const bx = (outW - cardW) / 2;
-    const by = 14 * sy;
-    const rr = 12 * s;
+    const by = 12 * sy;
+    const rr = cardH / 2;
     ctx.save();
     ctx.beginPath();
     ctx.moveTo(bx + rr, by);
@@ -2077,16 +2114,32 @@ function drawExportFrame(ctx, outW, outH, markerImgs, exportIconImg, visitedSet,
     ctx.arcTo(bx, by + cardH, bx, by, rr);
     ctx.arcTo(bx, by, bx + cardW, by, rr);
     ctx.closePath();
-    ctx.fillStyle = 'rgba(255,255,255,0.94)';
+    ctx.fillStyle = 'rgba(26,30,41,0.92)';
     ctx.fill();
-    ctx.fillStyle = '#5a6b5e';
-    ctx.font = `700 ${Math.max(10, 11 * s)}px sans-serif`;
+    ctx.strokeStyle = 'rgba(255,255,255,0.09)';
+    ctx.lineWidth = Math.max(1, s);
+    ctx.stroke();
+
+    const badgeCx = bx + padL + badgeD / 2;
+    const badgeCy = by + cardH / 2;
+    ctx.beginPath();
+    ctx.arc(badgeCx, badgeCy, badgeD / 2, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(77,159,255,0.22)';
+    ctx.fill();
+    ctx.font = `${Math.max(12, 14 * s)}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('📍', badgeCx, badgeCy + 0.5 * s);
+
+    const textX = bx + padL + badgeD + gap;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
-    ctx.fillText(topProgressState.order, bx + pad, by + pad);
-    ctx.fillStyle = '#1a1a1a';
+    ctx.fillStyle = '#4d9fff';
+    ctx.font = `700 ${Math.max(10, 10.5 * s)}px sans-serif`;
+    ctx.fillText(topProgressState.order, textX, by + cardH / 2 - 13 * s, cardW - (textX - bx) - padR);
+    ctx.fillStyle = '#e8ebf3';
     ctx.font = `600 ${Math.max(13, 15 * s)}px sans-serif`;
-    ctx.fillText(name, bx + pad, by + pad + 16 * s, cardW - pad * 2);
+    ctx.fillText(name, textX, by + cardH / 2 - 1 * s, cardW - (textX - bx) - padR);
     ctx.restore();
   }
 
@@ -2372,12 +2425,17 @@ async function recordAndDownload(){
   try {
     animElapsed = 0;
     lastCamPhaseKey = null;
+    lastPopPinIdx = null;
     hideSpotCard();
     hideDayBanner();
     hideEndSummary();
     hideTopProgress();
     hideTripIntro();
     setArrivalBubble(null);
+    // Leftover active/visited state from an earlier preview run would otherwise show
+    // the whole route as already-traveled in the recording's opening overview shot.
+    markers.forEach(m => m._el.classList.remove('active', 'visited'));
+    placeChips.forEach(el => el.classList.remove('active', 'visited'));
 
     if (hasTabCapture) await recordViaTabCapture({ mime, kind, btn });
     else await recordViaCanvas({ mime, kind, btn });
@@ -2564,7 +2622,18 @@ async function recordViaCanvas({ mime, kind, btn }){
 
   const fps = 30;
   const frameDt = 1000 / fps;
-  const stream = out.captureStream(fps);
+  // Manual capture: push exactly one video frame per drawExportFrame() call instead of
+  // letting captureStream sample the canvas on its own timer — a slow device (iPhone)
+  // can't guarantee a steady 30fps draw loop, and auto-sampling against that produces
+  // duplicated/dropped frames (visible as stutter) since it captures on its own clock.
+  const manualCapture = (() => {
+    try { return typeof out.captureStream(0).getVideoTracks()[0].requestFrame === 'function'; }
+    catch (e) { return false; }
+  })();
+  const stream = manualCapture ? out.captureStream(0) : out.captureStream(fps);
+  const track = stream.getVideoTracks()[0];
+  const pushFrame = manualCapture ? () => track.requestFrame() : () => {};
+  const recStart = performance.now();
   const chunks = [];
   const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 8_000_000 });
   rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
@@ -2596,7 +2665,8 @@ async function recordViaCanvas({ mime, kind, btn }){
     await waitMapFrame();
     const visited = new Set();
     markers.forEach((m, i) => { if (m._el.classList.contains('visited')) visited.add(i); });
-    drawExportFrame(ctx, out.width, out.height, markerImgs, exportIconImg, visited, slideImgMap);
+    drawExportFrame(ctx, out.width, out.height, markerImgs, exportIconImg, visited, slideImgMap, performance.now() - recStart);
+    pushFrame();
     let progress = 0;
     if (cineMode === 'intro') progress = (cineElapsed / introMs) * 8;
     else if (cineMode === 'main' || cineMode === 'outro'){
@@ -2612,7 +2682,8 @@ async function recordViaCanvas({ mime, kind, btn }){
   showEndSummary();
   const visitedEnd = new Set(clusters.map((_, i) => i));
   for (let i = 0; i < Math.round(fps * 0.8); i++){
-    drawExportFrame(ctx, out.width, out.height, markerImgs, exportIconImg, visitedEnd, slideImgMap);
+    drawExportFrame(ctx, out.width, out.height, markerImgs, exportIconImg, visitedEnd, slideImgMap, performance.now() - recStart);
+    pushFrame();
     await new Promise(r => setTimeout(r, frameDt));
   }
 
