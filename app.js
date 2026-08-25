@@ -9,7 +9,6 @@ const OVERVIEW_MODE = (window.APP_MODE === 'overview');
 let allPhotos = [];        // {file,url,lat,lon,time,w,h}
 let clusters = [];         // ordered chronologically {lat,lon,photos[],rep,startTime,endTime}
 let markers = [];
-let placeChips = [];  // sidebar breadcrumb chips, indexed like markers[]
 let activeCluster = null;
 let map = null;
 let movingMarker = null;
@@ -1019,12 +1018,7 @@ function geocodeClusters(){
 function updateClusterLabel(idx){
   const c = clusters[idx];
   if (!c) return;
-  const chip = document.querySelector(`#placelist .chip[data-idx="${idx}"]`);
-  if (chip){
-    const nameEl = chip.querySelector('.chip-name');
-    if (nameEl) nameEl.textContent = c.customName || c.placeName || `장소 ${idx + 1}`;
-    chip.title = placeLabel(c);
-  }
+  document.querySelectorAll(`#placelist .place[data-idx="${idx}"] .name`).forEach(el => { el.textContent = placeLabel(c); });
   if (activeCluster === idx){
     $('dpTitle').textContent = placeLabel(c);
   }
@@ -1198,83 +1192,78 @@ function renderMarkers(){
 function renderPlaceList(){
   const list = $('placelist');
   list.innerHTML = '';
-  placeChips = [];
   let lastDay = null;
-  let chipRow = null;
   clusters.forEach((c, i) => {
     if (c.day !== lastDay){
       lastDay = c.day;
+      const header = document.createElement('div');
+      header.className = 'day-header';
       const dayNum = c.day;
-      const dayRow = document.createElement('div');
-      dayRow.className = 'day-row';
-
-      const dayTag = document.createElement('div');
+      const dayTag = document.createElement('span');
       dayTag.className = 'day-tag';
-      const dayLabel = document.createElement('span');
-      dayLabel.textContent = 'Day ' + dayNum;
-      const dayDate = document.createElement('span');
-      dayDate.className = 'day-date';
-      dayDate.textContent = fmtDateShort(c.startTime);
+      dayTag.textContent = 'Day ' + dayNum;
+      const dayMeta = document.createElement('span');
+      dayMeta.className = 'day-meta';
+      dayMeta.textContent = fmtDateShort(c.startTime);
+      header.appendChild(dayTag);
+      header.appendChild(dayMeta);
       const dayDel = document.createElement('button');
       dayDel.type = 'button';
-      dayDel.className = 'day-del';
+      dayDel.className = 'list-del';
       dayDel.title = `Day ${dayNum} 전체 삭제`;
       dayDel.textContent = '🗑️';
       dayDel.addEventListener('click', e => {
         e.stopPropagation();
         deleteDay(dayNum);
       });
-      dayTag.appendChild(dayLabel);
-      dayTag.appendChild(dayDate);
-      dayTag.appendChild(dayDel);
-      dayRow.appendChild(dayTag);
-
-      chipRow = document.createElement('div');
-      chipRow.className = 'chip-row';
-      dayRow.appendChild(chipRow);
-      list.appendChild(dayRow);
-    } else {
-      const arrow = document.createElement('span');
-      arrow.className = 'chip-arrow';
-      arrow.textContent = '›';
-      chipRow.appendChild(arrow);
+      header.appendChild(dayDel);
+      list.appendChild(header);
     }
+    const row = document.createElement('div');
+    row.className = 'place';
+    row.dataset.idx = i;
 
-    const chip = document.createElement('div');
-    chip.className = 'chip';
-    chip.dataset.idx = i;
-    chip.title = placeLabel(c);
+    const idxEl = document.createElement('div');
+    idxEl.className = 'idx';
+    idxEl.textContent = String(i + 1);
 
     const thumb = document.createElement('div');
-    thumb.className = 'chip-thumb';
+    thumb.className = 'thumb';
     thumb.style.backgroundImage = `url(${c.rep.url})`;
     if (c.photos.length > 1){
-      const count = document.createElement('span');
-      count.className = 'chip-count';
-      count.textContent = String(c.photos.length);
-      thumb.appendChild(count);
+      const badge = document.createElement('div');
+      badge.className = 'badge';
+      badge.textContent = String(c.photos.length);
+      thumb.appendChild(badge);
     }
 
-    const name = document.createElement('span');
-    name.className = 'chip-name';
-    name.textContent = c.customName || c.placeName || `장소 ${i + 1}`;
+    const meta = document.createElement('div');
+    meta.className = 'meta';
+    const nameEl = document.createElement('div');
+    nameEl.className = 'name';
+    nameEl.textContent = placeLabel(c);
+    const timeEl = document.createElement('div');
+    timeEl.className = 'time';
+    timeEl.textContent = fmtDateShort(c.startTime) + (c.endTime > c.startTime ? ' ~ ' + fmtDateShort(c.endTime) : '');
+    meta.appendChild(nameEl);
+    meta.appendChild(timeEl);
 
-    const del = document.createElement('button');
-    del.type = 'button';
-    del.className = 'chip-del';
-    del.title = '이 장소 삭제';
-    del.textContent = '✕';
-    del.addEventListener('click', e => {
+    row.appendChild(idxEl);
+    row.appendChild(thumb);
+    row.appendChild(meta);
+
+    const placeDel = document.createElement('button');
+    placeDel.type = 'button';
+    placeDel.className = 'list-del';
+    placeDel.title = '이 장소 삭제';
+    placeDel.textContent = '🗑️';
+    placeDel.addEventListener('click', e => {
       e.stopPropagation();
       deleteCluster(i);
     });
-
-    chip.appendChild(thumb);
-    chip.appendChild(name);
-    chip.appendChild(del);
-    chip.addEventListener('click', () => selectCluster(i, true));
-    chipRow.appendChild(chip);
-    placeChips.push(chip);
+    row.appendChild(placeDel);
+    row.addEventListener('click', () => selectCluster(i, true));
+    list.appendChild(row);
   });
 }
 function placeLabel(c){
@@ -1318,7 +1307,7 @@ function fitToClusters(){
 function selectCluster(i, fly){
   activeCluster = i;
   markers.forEach((m,idx) => m._el.classList.toggle('active', idx===i));
-  placeChips.forEach((el, idx) => el.classList.toggle('active', idx===i));
+  $('placelist').querySelectorAll('.place').forEach(el => el.classList.toggle('active', Number(el.dataset.idx)===i));
   const c = clusters[i];
   if (fly && !OVERVIEW_MODE){
     camFollow = false;
@@ -1702,7 +1691,8 @@ function renderFrame(elapsed, frameDt){
     m._el.classList.toggle('active', idx === nearIdx);
     m._el.classList.toggle('visited', idx <= reachedIdx);
   });
-  placeChips.forEach((el, idx) => {
+  $('placelist').querySelectorAll('.place').forEach(el => {
+    const idx = Number(el.dataset.idx);
     el.classList.toggle('active', idx === nearIdx);
     el.classList.toggle('visited', idx <= reachedIdx);
   });
@@ -2460,7 +2450,7 @@ async function recordAndDownload(){
     // Leftover active/visited state from an earlier preview run would otherwise show
     // the whole route as already-traveled in the recording's opening overview shot.
     markers.forEach(m => m._el.classList.remove('active', 'visited'));
-    placeChips.forEach(el => el.classList.remove('active', 'visited'));
+    $('placelist').querySelectorAll('.place').forEach(el => el.classList.remove('active', 'visited'));
 
     if (hasTabCapture) await recordViaTabCapture({ mime, kind, btn });
     else await recordViaCanvas({ mime, kind, btn });
