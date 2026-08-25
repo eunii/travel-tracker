@@ -9,6 +9,7 @@ const OVERVIEW_MODE = (window.APP_MODE === 'overview');
 let allPhotos = [];        // {file,url,lat,lon,time,w,h}
 let clusters = [];         // ordered chronologically {lat,lon,photos[],rep,startTime,endTime}
 let markers = [];
+let placeChips = [];  // sidebar breadcrumb chips, indexed like markers[]
 let activeCluster = null;
 let map = null;
 let movingMarker = null;
@@ -994,7 +995,12 @@ function geocodeClusters(){
 function updateClusterLabel(idx){
   const c = clusters[idx];
   if (!c) return;
-  document.querySelectorAll(`#placelist .place[data-idx="${idx}"] .name`).forEach(el => { el.textContent = placeLabel(c); });
+  const chip = document.querySelector(`#placelist .chip[data-idx="${idx}"]`);
+  if (chip){
+    const nameEl = chip.querySelector('.chip-name');
+    if (nameEl) nameEl.textContent = c.customName || c.placeName || `장소 ${idx + 1}`;
+    chip.title = placeLabel(c);
+  }
   if (activeCluster === idx){
     $('dpTitle').textContent = placeLabel(c);
   }
@@ -1168,78 +1174,83 @@ function renderMarkers(){
 function renderPlaceList(){
   const list = $('placelist');
   list.innerHTML = '';
+  placeChips = [];
   let lastDay = null;
+  let chipRow = null;
   clusters.forEach((c, i) => {
     if (c.day !== lastDay){
       lastDay = c.day;
-      const header = document.createElement('div');
-      header.className = 'day-header';
       const dayNum = c.day;
-      const dayTag = document.createElement('span');
+      const dayRow = document.createElement('div');
+      dayRow.className = 'day-row';
+
+      const dayTag = document.createElement('div');
       dayTag.className = 'day-tag';
-      dayTag.textContent = 'Day ' + dayNum;
-      const dayMeta = document.createElement('span');
-      dayMeta.className = 'day-meta';
-      dayMeta.textContent = fmtDateShort(c.startTime);
-      header.appendChild(dayTag);
-      header.appendChild(dayMeta);
+      const dayLabel = document.createElement('span');
+      dayLabel.textContent = 'Day ' + dayNum;
+      const dayDate = document.createElement('span');
+      dayDate.className = 'day-date';
+      dayDate.textContent = fmtDateShort(c.startTime);
       const dayDel = document.createElement('button');
       dayDel.type = 'button';
-      dayDel.className = 'list-del';
+      dayDel.className = 'day-del';
       dayDel.title = `Day ${dayNum} 전체 삭제`;
       dayDel.textContent = '🗑️';
       dayDel.addEventListener('click', e => {
         e.stopPropagation();
         deleteDay(dayNum);
       });
-      header.appendChild(dayDel);
-      list.appendChild(header);
-    }
-    const row = document.createElement('div');
-    row.className = 'place';
-    row.dataset.idx = i;
+      dayTag.appendChild(dayLabel);
+      dayTag.appendChild(dayDate);
+      dayTag.appendChild(dayDel);
+      dayRow.appendChild(dayTag);
 
-    const idxEl = document.createElement('div');
-    idxEl.className = 'idx';
-    idxEl.textContent = String(i + 1);
+      chipRow = document.createElement('div');
+      chipRow.className = 'chip-row';
+      dayRow.appendChild(chipRow);
+      list.appendChild(dayRow);
+    } else {
+      const arrow = document.createElement('span');
+      arrow.className = 'chip-arrow';
+      arrow.textContent = '›';
+      chipRow.appendChild(arrow);
+    }
+
+    const chip = document.createElement('div');
+    chip.className = 'chip';
+    chip.dataset.idx = i;
+    chip.title = placeLabel(c);
 
     const thumb = document.createElement('div');
-    thumb.className = 'thumb';
+    thumb.className = 'chip-thumb';
     thumb.style.backgroundImage = `url(${c.rep.url})`;
     if (c.photos.length > 1){
-      const badge = document.createElement('div');
-      badge.className = 'badge';
-      badge.textContent = String(c.photos.length);
-      thumb.appendChild(badge);
+      const count = document.createElement('span');
+      count.className = 'chip-count';
+      count.textContent = String(c.photos.length);
+      thumb.appendChild(count);
     }
 
-    const meta = document.createElement('div');
-    meta.className = 'meta';
-    const nameEl = document.createElement('div');
-    nameEl.className = 'name';
-    nameEl.textContent = placeLabel(c);
-    const timeEl = document.createElement('div');
-    timeEl.className = 'time';
-    timeEl.textContent = fmtDateShort(c.startTime) + (c.endTime > c.startTime ? ' ~ ' + fmtDateShort(c.endTime) : '');
-    meta.appendChild(nameEl);
-    meta.appendChild(timeEl);
+    const name = document.createElement('span');
+    name.className = 'chip-name';
+    name.textContent = c.customName || c.placeName || `장소 ${i + 1}`;
 
-    row.appendChild(idxEl);
-    row.appendChild(thumb);
-    row.appendChild(meta);
-
-    const placeDel = document.createElement('button');
-    placeDel.type = 'button';
-    placeDel.className = 'list-del';
-    placeDel.title = '이 장소 삭제';
-    placeDel.textContent = '🗑️';
-    placeDel.addEventListener('click', e => {
+    const del = document.createElement('button');
+    del.type = 'button';
+    del.className = 'chip-del';
+    del.title = '이 장소 삭제';
+    del.textContent = '✕';
+    del.addEventListener('click', e => {
       e.stopPropagation();
       deleteCluster(i);
     });
-    row.appendChild(placeDel);
-    row.addEventListener('click', () => selectCluster(i, true));
-    list.appendChild(row);
+
+    chip.appendChild(thumb);
+    chip.appendChild(name);
+    chip.appendChild(del);
+    chip.addEventListener('click', () => selectCluster(i, true));
+    chipRow.appendChild(chip);
+    placeChips.push(chip);
   });
 }
 function placeLabel(c){
@@ -1283,7 +1294,7 @@ function fitToClusters(){
 function selectCluster(i, fly){
   activeCluster = i;
   markers.forEach((m,idx) => m._el.classList.toggle('active', idx===i));
-  $('placelist').querySelectorAll('.place').forEach(el => el.classList.toggle('active', Number(el.dataset.idx)===i));
+  placeChips.forEach((el, idx) => el.classList.toggle('active', idx===i));
   const c = clusters[i];
   if (fly && !OVERVIEW_MODE){
     camFollow = false;
@@ -1665,6 +1676,10 @@ function renderFrame(elapsed, frameDt){
   markers.forEach((m, idx) => {
     m._el.classList.toggle('active', idx === nearIdx);
     m._el.classList.toggle('visited', idx <= reachedIdx);
+  });
+  placeChips.forEach((el, idx) => {
+    el.classList.toggle('active', idx === nearIdx);
+    el.classList.toggle('visited', idx <= reachedIdx);
   });
   $('tlPlace').textContent = dayPlaceLabel(clusters[nearIdx]);
   if (phase.kind === 'dwell'){
