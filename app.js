@@ -106,7 +106,7 @@ try {
 
 let dayTimelineState = null;      // {day, name} of current place, for the simplified canvas-export badge
 let dayTimelineCurrentDay = null; // day number currently rendered in the dot-track card
-let dayTimelineStops = [];        // [{cluster, el, statusEl}] for the currently rendered day, in order
+let dayTimelineStops = [];        // [{cluster, el}] for the currently rendered day, in order
 let dayTimelineConnectors = [];   // [.dt-connector-fill elements] between consecutive stops
 let dayTimelineLastCurrentIdx = null; // last currentIdx scrolled to, to avoid redundant scrollIntoView calls
 let tripIntroVisible = false;
@@ -569,13 +569,10 @@ function buildDayTrack(day){
     const name = document.createElement('div');
     name.className = 'dt-stop-name';
     name.textContent = placeTitle(c);
-    const status = document.createElement('div');
-    status.className = 'dt-stop-status';
     stop.appendChild(dotWrap);
     stop.appendChild(name);
-    stop.appendChild(status);
     track.appendChild(stop);
-    dayTimelineStops.push({ cluster: c, el: stop, statusEl: status });
+    dayTimelineStops.push({ cluster: c, el: stop });
   });
   card.appendChild(track);
 
@@ -595,11 +592,8 @@ function updateDayTimeline(cluster, localPos){
   const currentIdx = dayTimelineStops.findIndex(s => s.cluster === cluster);
   const fillPos = Math.max(0, Math.min(n - 1, localPos != null ? localPos : currentIdx));
   dayTimelineStops.forEach((stop, i) => {
-    const done = i < currentIdx;
-    const current = i === currentIdx;
-    stop.el.classList.toggle('done', done);
-    stop.el.classList.toggle('current', current);
-    stop.statusEl.textContent = done ? '완료' : current ? '현재' : '예정';
+    stop.el.classList.toggle('done', i < currentIdx);
+    stop.el.classList.toggle('current', i === currentIdx);
   });
   dayTimelineConnectors.forEach((fillEl, i) => {
     const pct = Math.max(0, Math.min(1, fillPos - i)) * 100;
@@ -722,7 +716,7 @@ function initMap(){
   });
   map.addControl(new maplibregl.NavigationControl(), 'top-right');
   map.addControl(new ThemeToggleControl(), 'top-right');
-  map.addControl(new maplibregl.AttributionControl({compact:true}), 'top-right');
+  map.addControl(new maplibregl.AttributionControl({compact:true}), 'bottom-right');
 
   map.on('load', setupRouteLayers);
   // setStyle removes custom sources/layers; restore route data on every style load
@@ -936,7 +930,6 @@ function resetState(){
   resetDayTimeline();
   closeDetail();
   $('timeline').classList.remove('show');
-  $('btnFitAll').classList.remove('show');
   if (map && map.getSource('route-full')) map.getSource('route-full').setData(emptyLine());
   if (map && map.getSource('route-progress')) map.getSource('route-progress').setData(emptyLine());
 }
@@ -1001,7 +994,6 @@ function buildClusters(radiusM, opts){
   renderDayTimeline();
   renderMarkers();
   renderRoute();
-  $('btnFitAll').classList.toggle('show', clusters.length > 0);
   if (fit){
     setupAnimation();
     camFollow = (OVERVIEW_MODE ? false : true);
@@ -2808,10 +2800,6 @@ $('tlRange').addEventListener('input', e => {
   animElapsed = Number(e.target.value)/1000 * animTotal;
   camFollow = (OVERVIEW_MODE ? false : true);
   renderFrame(animElapsed);
-});
-$('btnFitAll').addEventListener('click', () => {
-  if (!clusters.length || isRecording) return;
-  fitToClusters();
 });
 $('btnTripTitle').addEventListener('click', () => {
   if (!clusters.length) return;
