@@ -142,24 +142,26 @@
     <button id="btnFitAll" title="내 여행 전체 보기" aria-label="내 여행 전체 보기">⛶</button>
 
     <div id="timeline">
-      <button id="btnPlay" title="미리보기로 동선 재생">▶ 미리보기</button>
-      <button id="btnRecord" title="동선 재생을 동영상으로 저장">📥 저장</button>
-      <div class="tl-mid">
-        <input type="range" id="tlRange" min="0" max="1000" value="0">
-        <div class="tl-labels">
-          <span id="tlNow">-</span>
-          <span id="tlPlace">-</span>
-          <span id="tlEnd">-</span>
+      <div class="tl-handle" id="tlHandle" title="재생바 접기/펼치기" aria-label="재생바 접기/펼치기"></div>
+      <div class="tl-body">
+        <button id="btnPlay" title="미리보기로 동선 재생">▶ 미리보기</button>
+        <button id="btnRecord" title="동선 재생을 동영상으로 저장">📥 저장</button>
+        <div class="tl-mid">
+          <input type="range" id="tlRange" min="0" max="1000" value="0">
+          <div class="tl-labels">
+            <span id="tlNow">-</span>
+            <span id="tlPlace">-</span>
+            <span id="tlEnd">-</span>
+          </div>
         </div>
+        <select id="tlSpeed">
+          <option value="0.5">0.5×</option>
+          <option value="1" selected>1×</option>
+          <option value="2">2×</option>
+          <option value="4">4×</option>
+        </select>
+        <button class="btn-icon" id="btnReplay" title="처음으로">⟲</button>
       </div>
-      <select id="tlSpeed">
-        <option value="0.5">0.5×</option>
-        <option value="1" selected>1×</option>
-        <option value="2">2×</option>
-        <option value="4">4×</option>
-      </select>
-      <button class="btn-icon" id="btnReplay" title="처음으로">⟲</button>
-      <button id="btnTimelineToggle" class="tl-toggle" type="button" title="재생바 접기/펼치기" aria-label="재생바 접기/펼치기">⌄</button>
     </div>
   </div>
 </div>

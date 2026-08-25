@@ -108,6 +108,7 @@ let dayTimelineState = null;      // {day, name} of current place, for the simpl
 let dayTimelineCurrentDay = null; // day number currently rendered in the dot-track card
 let dayTimelineStops = [];        // [{cluster, el, statusEl}] for the currently rendered day, in order
 let dayTimelineConnectors = [];   // [.dt-connector-fill elements] between consecutive stops
+let dayTimelineLastCurrentIdx = null; // last currentIdx scrolled to, to avoid redundant scrollIntoView calls
 let tripIntroVisible = false;
 
 const $ = (id) => document.getElementById(id);
@@ -517,6 +518,7 @@ function resetDayTimeline(){
   dayTimelineCurrentDay = null;
   dayTimelineStops = [];
   dayTimelineConnectors = [];
+  dayTimelineLastCurrentIdx = null;
   const el = $('dayTimeline');
   if (el) el.innerHTML = '';
 }
@@ -580,6 +582,7 @@ function buildDayTrack(day){
   el.innerHTML = '';
   el.appendChild(card);
   dayTimelineCurrentDay = day;
+  dayTimelineLastCurrentIdx = null;
   requestAnimationFrame(() => card.classList.add('show'));
 }
 
@@ -602,6 +605,11 @@ function updateDayTimeline(cluster, localPos){
     const pct = Math.max(0, Math.min(1, fillPos - i)) * 100;
     fillEl.style.width = pct + '%';
   });
+  if (currentIdx !== dayTimelineLastCurrentIdx){
+    dayTimelineLastCurrentIdx = currentIdx;
+    const stopEl = dayTimelineStops[currentIdx].el;
+    if (stopEl.scrollIntoView) stopEl.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+  }
 }
 
 function hideTripIntro(){
@@ -2757,10 +2765,21 @@ $('btnPlay').addEventListener('click', () => {
   if (isPlaying) pauseAnim();
   else playAnim();
 });
-$('btnTimelineToggle').addEventListener('click', () => {
-  const collapsed = $('timeline').classList.toggle('collapsed');
-  $('btnTimelineToggle').textContent = collapsed ? '⌃' : '⌄';
-});
+(() => {
+  const handle = $('tlHandle');
+  const timeline = $('timeline');
+  if (!handle || !timeline) return;
+  let startY = null;
+  handle.addEventListener('click', () => timeline.classList.toggle('collapsed'));
+  handle.addEventListener('pointerdown', e => { startY = e.clientY; });
+  handle.addEventListener('pointermove', e => {
+    if (startY == null) return;
+    const dy = e.clientY - startY;
+    if (dy > 24){ timeline.classList.add('collapsed'); startY = null; }
+    else if (dy < -24){ timeline.classList.remove('collapsed'); startY = null; }
+  });
+  handle.addEventListener('pointerup', () => { startY = null; });
+})();
 $('btnRecord').addEventListener('click', () => { recordAndDownload(); });
 $('btnReplay').addEventListener('click', () => {
   if (isRecording) return;
