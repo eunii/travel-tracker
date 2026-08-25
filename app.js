@@ -73,7 +73,6 @@ let cineMode = 'idle';      // idle | intro | main | outro
 let cineStage = 0;
 let cineElapsed = 0;
 let spotCardState = null;  // DOM overlay state (photo slide while playing)
-let dayBannerText = null;
 
 const CAM_MIN_ZOOM = 3;
 const CAM_MAX_ZOOM = 15;
@@ -105,9 +104,10 @@ try {
   if (savedTitle != null && savedTitle !== '') tripTitleCustom = savedTitle;
 } catch (e) { /* ignore */ }
 
-let dayTimelineState = null;  // {day, name} of current place, for the simplified canvas-export badge
-let dayTimelineItems = {};    // day number -> .dt-item element
-let dayLastIdx = {};          // day number -> last cluster index belonging to that day
+let dayTimelineState = null;      // {day, name} of current place, for the simplified canvas-export badge
+let dayTimelineCurrentDay = null; // day number currently rendered in the dot-track card
+let dayTimelineStops = [];        // [{cluster, el, statusEl}] for the currently rendered day, in order
+let dayTimelineConnectors = [];   // [.dt-connector-fill elements] between consecutive stops
 let tripIntroVisible = false;
 
 const $ = (id) => document.getElementById(id);
@@ -502,56 +502,106 @@ function showSpotCardPhoto(cluster, clusterIdx, dwellT){
 
 /**
  * Day timeline (persistent, always visible once a trip is loaded — replaces the old
- * single-place topProgress toast). Rebuilt whenever clusters change; state (current/done)
- * updated every frame from renderFrame()/renderIntroFrame().
+ * single-place topProgress toast). Shows ONE day's stops as a dot-and-line progress track;
+ * the whole card is rebuilt (with a fade-in) only when the current day changes, and just
+ * the dot/line fill state is updated every frame otherwise.
  */
 function renderDayTimeline(){
+  resetDayTimeline();
   const el = $('dayTimeline');
-  if (!el) return;
-  el.innerHTML = '';
-  dayTimelineItems = {};
-  dayLastIdx = {};
-  clusters.forEach((c, i) => {
-    if (!dayTimelineItems[c.day]){
-      const item = document.createElement('div');
-      item.className = 'dt-item';
-      item.dataset.day = c.day;
-      const label = document.createElement('div');
-      label.className = 'dt-label';
-      label.textContent = 'DAY ' + c.day;
-      const place = document.createElement('div');
-      place.className = 'dt-place';
-      place.textContent = placeTitle(c);
-      const date = document.createElement('div');
-      date.className = 'dt-date';
-      date.textContent = fmtDateShort(c.startTime);
-      item.appendChild(label);
-      item.appendChild(place);
-      item.appendChild(date);
-      el.appendChild(item);
-      dayTimelineItems[c.day] = item;
-    }
-    dayLastIdx[c.day] = i;
-  });
-  el.setAttribute('aria-hidden', clusters.length ? 'false' : 'true');
-}
-
-function updateDayTimeline(cluster, reachedIdx){
-  if (!cluster) return;
-  const currentDay = cluster.day;
-  dayTimelineState = { day: currentDay, name: placeTitle(cluster) };
-  Object.keys(dayTimelineItems).forEach(dayKey => {
-    const day = Number(dayKey);
-    const item = dayTimelineItems[day];
-    const done = day !== currentDay && reachedIdx != null && dayLastIdx[day] <= reachedIdx;
-    item.classList.toggle('current', day === currentDay);
-    item.classList.toggle('done', done);
-  });
+  if (el) el.setAttribute('aria-hidden', clusters.length ? 'false' : 'true');
 }
 
 function resetDayTimeline(){
   dayTimelineState = null;
-  Object.values(dayTimelineItems).forEach(item => item.classList.remove('current', 'done'));
+  dayTimelineCurrentDay = null;
+  dayTimelineStops = [];
+  dayTimelineConnectors = [];
+  const el = $('dayTimeline');
+  if (el) el.innerHTML = '';
+}
+
+function buildDayTrack(day){
+  const el = $('dayTimeline');
+  if (!el) return;
+  const dayClusters = clusters.filter(c => c.day === day);
+  if (!dayClusters.length) return;
+
+  const card = document.createElement('div');
+  card.className = 'dt-card';
+
+  const header = document.createElement('div');
+  header.className = 'dt-header';
+  const dayLabel = document.createElement('span');
+  dayLabel.className = 'dt-day';
+  dayLabel.textContent = 'DAY ' + day;
+  const dateLabel = document.createElement('span');
+  dateLabel.className = 'dt-date';
+  dateLabel.textContent = fmtDateShort(dayClusters[0].startTime);
+  header.appendChild(dayLabel);
+  header.appendChild(dateLabel);
+  card.appendChild(header);
+
+  const track = document.createElement('div');
+  track.className = 'dt-track';
+
+  dayTimelineStops = [];
+  dayTimelineConnectors = [];
+  dayClusters.forEach((c, i) => {
+    if (i > 0){
+      const connector = document.createElement('div');
+      connector.className = 'dt-connector';
+      const fill = document.createElement('div');
+      fill.className = 'dt-connector-fill';
+      connector.appendChild(fill);
+      track.appendChild(connector);
+      dayTimelineConnectors.push(fill);
+    }
+    const stop = document.createElement('div');
+    stop.className = 'dt-stop';
+    const dotWrap = document.createElement('div');
+    dotWrap.className = 'dt-dot-wrap';
+    const dot = document.createElement('span');
+    dot.className = 'dt-dot';
+    dotWrap.appendChild(dot);
+    const name = document.createElement('div');
+    name.className = 'dt-stop-name';
+    name.textContent = placeTitle(c);
+    const status = document.createElement('div');
+    status.className = 'dt-stop-status';
+    stop.appendChild(dotWrap);
+    stop.appendChild(name);
+    stop.appendChild(status);
+    track.appendChild(stop);
+    dayTimelineStops.push({ cluster: c, el: stop, statusEl: status });
+  });
+  card.appendChild(track);
+
+  el.innerHTML = '';
+  el.appendChild(card);
+  dayTimelineCurrentDay = day;
+  requestAnimationFrame(() => card.classList.add('show'));
+}
+
+function updateDayTimeline(cluster, localPos){
+  if (!cluster) return;
+  dayTimelineState = { day: cluster.day, name: placeTitle(cluster) };
+  if (cluster.day !== dayTimelineCurrentDay) buildDayTrack(cluster.day);
+  const n = dayTimelineStops.length;
+  if (!n) return;
+  const currentIdx = dayTimelineStops.findIndex(s => s.cluster === cluster);
+  const fillPos = Math.max(0, Math.min(n - 1, localPos != null ? localPos : currentIdx));
+  dayTimelineStops.forEach((stop, i) => {
+    const done = i < currentIdx;
+    const current = i === currentIdx;
+    stop.el.classList.toggle('done', done);
+    stop.el.classList.toggle('current', current);
+    stop.statusEl.textContent = done ? '완료' : current ? '현재' : '예정';
+  });
+  dayTimelineConnectors.forEach((fillEl, i) => {
+    const pct = Math.max(0, Math.min(1, fillPos - i)) * 100;
+    fillEl.style.width = pct + '%';
+  });
 }
 
 function hideTripIntro(){
@@ -570,23 +620,6 @@ function showTripIntro(){
   $('tiTitle').textContent = getTripTitle();
   $('tiDays').textContent = stay.n > 1 ? stay.ko + ' · ' + stay.en : stay.en;
   $('tiRange').textContent = tripDateRangeLabel();
-  el.classList.add('show');
-  el.setAttribute('aria-hidden', 'false');
-}
-
-function hideDayBanner(){
-  dayBannerText = null;
-  const el = $('dayBanner');
-  if (!el) return;
-  el.classList.remove('show');
-  el.setAttribute('aria-hidden', 'true');
-}
-
-function showDayBanner(text){
-  dayBannerText = text;
-  const el = $('dayBanner');
-  if (!el) return;
-  el.textContent = text;
   el.classList.add('show');
   el.setAttribute('aria-hidden', 'false');
 }
@@ -611,10 +644,6 @@ function showEndSummary(){
   $('esKm').textContent = km < 10 ? km.toFixed(1) : String(Math.round(km));
   el.classList.add('show');
   el.setAttribute('aria-hidden', 'false');
-  Object.values(dayTimelineItems).forEach(item => {
-    item.classList.remove('current');
-    item.classList.add('done');
-  });
   if (endSummaryTimer) clearTimeout(endSummaryTimer);
   endSummaryTimer = setTimeout(hideEndSummary, 5000);
 }
@@ -896,8 +925,7 @@ function resetState(){
   stopAnim(); animElapsed = 0;
   camZoom = null; camLon = null; camLat = null; camFollow = (OVERVIEW_MODE ? false : true);
   $('placelist').innerHTML = '';
-  $('dayTimeline').innerHTML = '';
-  dayTimelineItems = {}; dayLastIdx = {}; dayTimelineState = null;
+  resetDayTimeline();
   closeDetail();
   $('timeline').classList.remove('show');
   $('btnFitAll').classList.remove('show');
@@ -1032,10 +1060,10 @@ function updateClusterLabel(idx){
   const c = clusters[idx];
   if (!c) return;
   document.querySelectorAll(`#placelist .place[data-idx="${idx}"] .name`).forEach(el => { el.textContent = placeLabel(c); });
-  if (clusters.findIndex(x => x.day === c.day) === idx){
-    const item = dayTimelineItems[c.day];
-    const place = item && item.querySelector('.dt-place');
-    if (place) place.textContent = placeTitle(c);
+  const stop = dayTimelineStops.find(s => s.cluster === c);
+  if (stop){
+    const nameEl = stop.el.querySelector('.dt-stop-name');
+    if (nameEl) nameEl.textContent = placeTitle(c);
   }
   if (activeCluster === idx){
     $('dpTitle').textContent = placeLabel(c);
@@ -1541,7 +1569,6 @@ function setupAnimation(){
   lastCamPhaseKey = null;
   lastPopPinIdx = null;
   hideSpotCard();
-  hideDayBanner();
   hideEndSummary();
   resetDayTimeline();
   hideTripIntro();
@@ -1618,14 +1645,8 @@ function renderFrame(elapsed, frameDt){
     b = clusters[Math.min(phase.clusterIdx + 1, n - 1)] || c;
     segT = 1;
     popPinAt(phase.clusterIdx);
-    if (phase.clusterIdx > 0 && clusters[phase.clusterIdx].day !== clusters[phase.clusterIdx - 1].day && phase.t < 0.55){
-      const d = clusters[phase.clusterIdx];
-      showDayBanner('DAY ' + d.day + ' · ' + fmtDateShort(d.startTime));
-    } else if (phase.t > 0.7){
-      hideDayBanner();
-    }
     setArrivalBubble(null);
-    updateDayTimeline(c, reachedIdx);
+    updateDayTimeline(c, null);
     if (arrivalMode === 'popup') showSpotCardPhoto(c, phase.clusterIdx, phase.t);
     else hideSpotCard();
   } else {
@@ -1640,8 +1661,16 @@ function renderFrame(elapsed, frameDt){
     reachedIdx = eased >= 0.98 ? Math.min(segIdx + 1, n - 1) : segIdx;
     setArrivalBubble(null);
     hideSpotCard();
-    hideDayBanner();
-    updateDayTimeline(clusters[nearIdx], reachedIdx);
+    const nearCluster = clusters[nearIdx];
+    let localPos;
+    if (a.day === b.day){
+      const dayClusters = clusters.filter(x => x.day === a.day);
+      localPos = dayClusters.indexOf(a) + eased;
+    } else {
+      const dayClusters = clusters.filter(x => x.day === nearCluster.day);
+      localPos = nearCluster === a ? dayClusters.length - 1 : 0;
+    }
+    updateDayTimeline(nearCluster, localPos);
   }
 
   if (movingMarker) movingMarker.setLngLat([lon, lat]);
@@ -1768,7 +1797,6 @@ function startCineIntro(){
   cineElapsed = 0;
   hideEndSummary();
   hideSpotCard();
-  hideDayBanner();
   resetDayTimeline();
   showTripIntro();
   if (movingMarker) movingMarker.setLngLat([clusters[0].lon, clusters[0].lat]);
@@ -1776,7 +1804,6 @@ function startCineIntro(){
 
 function startCineOutro(){
   hideSpotCard();
-  hideDayBanner();
   hideTripIntro();
   setArrivalBubble(null);
   camFollow = false;
@@ -1917,7 +1944,6 @@ function stopAnim(){
   cineMode = 'idle';
   setArrivalBubble(null);
   hideSpotCard();
-  hideDayBanner();
   hideEndSummary();
   resetDayTimeline();
   hideTripIntro();
@@ -2254,29 +2280,6 @@ function drawExportFrame(ctx, outW, outH, markerImgs, exportIconImg, visitedSet,
     ctx.restore();
   }
 
-  if (dayBannerText){
-    const s = Math.min(sx, sy);
-    const fontPx = Math.max(12, 13 * s);
-    ctx.font = `600 ${fontPx}px sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    const tw = ctx.measureText(dayBannerText).width;
-    const bw = tw + 28 * s, bh = fontPx + 16 * s;
-    const bx = (outW - bw) / 2, by = 64 * sy;
-    const rr = bh / 2;
-    ctx.beginPath();
-    ctx.moveTo(bx + rr, by);
-    ctx.arcTo(bx + bw, by, bx + bw, by + bh, rr);
-    ctx.arcTo(bx + bw, by + bh, bx, by + bh, rr);
-    ctx.arcTo(bx, by + bh, bx, by, rr);
-    ctx.arcTo(bx, by, bx + bw, by, rr);
-    ctx.closePath();
-    ctx.fillStyle = 'rgba(18,21,28,0.88)';
-    ctx.fill();
-    ctx.fillStyle = '#fff';
-    ctx.fillText(dayBannerText, outW / 2, by + bh / 2);
-  }
-
   const endEl = $('endSummary');
   if (endEl && endEl.classList.contains('show')){
     const s = Math.min(sx, sy);
@@ -2453,7 +2456,6 @@ async function recordAndDownload(){
     lastCamPhaseKey = null;
     lastPopPinIdx = null;
     hideSpotCard();
-    hideDayBanner();
     hideEndSummary();
     resetDayTimeline();
     hideTripIntro();
@@ -2755,6 +2757,10 @@ $('btnPlay').addEventListener('click', () => {
   if (isPlaying) pauseAnim();
   else playAnim();
 });
+$('btnTimelineToggle').addEventListener('click', () => {
+  const collapsed = $('timeline').classList.toggle('collapsed');
+  $('btnTimelineToggle').textContent = collapsed ? '⌃' : '⌄';
+});
 $('btnRecord').addEventListener('click', () => { recordAndDownload(); });
 $('btnReplay').addEventListener('click', () => {
   if (isRecording) return;
@@ -2764,7 +2770,6 @@ $('btnReplay').addEventListener('click', () => {
   cineMode = 'idle';
   setTimelineCompact(false);
   hideSpotCard();
-  hideDayBanner();
   hideEndSummary();
   resetDayTimeline();
   hideTripIntro();
