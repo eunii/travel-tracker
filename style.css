@@ -387,8 +387,9 @@
   #lightbox .lb-prev{left:calc(18px + env(safe-area-inset-left));}
   #lightbox .lb-next{right:calc(18px + env(safe-area-inset-right));}
 
-  /* Unified rounded control card (zoom/compass/dark-mode/attribution) — pushed down so it
-     clears the floating #appbar, which now occupies the top-right corner it used to sit in. */
+  /* Unified rounded control card (attribution/zoom/compass) — all stacked in the top-right
+     corner, pushed down so the stack clears the floating #appbar and starts right under it;
+     attribution is added first in app.js so it lands above the zoom/compass button group. */
   .maplibregl-ctrl-top-right{display:flex;flex-direction:column;align-items:flex-end;gap:8px;
     top:calc(68px + env(safe-area-inset-top)) !important;}
   .maplibregl-ctrl-group{background:var(--panel) !important;border:1px solid var(--border) !important;
@@ -399,8 +400,6 @@
   .maplibregl-ctrl-attrib{background:var(--panel) !important;border-radius:16px !important;
     font-size:10px;color:var(--sub) !important;}
   .maplibregl-ctrl-attrib a{color:var(--sub) !important;}
-  /* sit just above the playback bar instead of the default bottom corner */
-  .maplibregl-ctrl-bottom-right{bottom:calc(94px + env(safe-area-inset-bottom)) !important;}
 
   #sidebarClose,#sheetPhotosClose{display:block;background:none;color:var(--sub);font-size:18px;padding:4px 8px;}
   #backdrop{display:none;position:fixed;inset:0;background:rgba(15,23,42,.35);z-index:14;}

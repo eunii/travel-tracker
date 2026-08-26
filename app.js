@@ -697,8 +697,10 @@ function initMap(){
     // needed so WebGL frames can be copied into the export canvas
     preserveDrawingBuffer: true
   });
+  // Attribution added before the zoom controls so it stacks first (right under #appbar,
+  // above the zoom/compass group) — user asked for it row-aligned just below the top bar.
+  map.addControl(new maplibregl.AttributionControl({compact:true}), 'top-right');
   map.addControl(new maplibregl.NavigationControl(), 'top-right');
-  map.addControl(new maplibregl.AttributionControl({compact:true}), 'bottom-right');
 
   map.on('load', setupRouteLayers);
   // setStyle removes custom sources/layers; restore route data on every style load
