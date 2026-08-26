@@ -42,9 +42,9 @@
   </div>
 
   <div id="sidebar" class="bottom-sheet">
-    <h1><span class="material-symbols-outlined">route</span> 여정 <button id="sidebarClose" class="material-symbols-outlined">close</button></h1>
+    <h1><span class="material-symbols-outlined">route</span> 여행 <button id="sidebarClose" class="material-symbols-outlined">close</button></h1>
     <div id="empty">
-      아직 여정이 없습니다.<br>"사진" 탭에서 사진을 추가해 보세요.
+      아직 여행이 없습니다.<br>"사진" 탭에서 사진을 추가해 보세요.
     </div>
     <div id="tripTitleTab" class="trip-title-row" style="display:none;">
       <div style="flex:1;min-width:0;">
@@ -125,7 +125,7 @@
 
 <nav id="mobileTabBar">
   <button type="button" class="mt-btn" id="tabMap" data-tab="map" title="맵" aria-label="맵"><span class="material-symbols-outlined">map</span></button>
-  <button type="button" class="mt-btn" id="tabJourney" data-tab="journey" title="여정" aria-label="여정"><span class="material-symbols-outlined">route</span></button>
+  <button type="button" class="mt-btn" id="tabJourney" data-tab="journey" title="여행" aria-label="여행"><span class="material-symbols-outlined">route</span></button>
   <button type="button" class="mt-btn" id="tabPhotos" data-tab="photos" title="사진" aria-label="사진"><span class="material-symbols-outlined">add_a_photo</span></button>
   <button type="button" class="mt-btn" id="tabSettings" data-tab="settings" title="설정" aria-label="설정"><span class="material-symbols-outlined">tune</span></button>
 </nav>
@@ -135,10 +135,7 @@
   <div class="settings-body">
     <section class="settings-card">
       <h3>테마 색상</h3>
-      <div class="ctrl-row"><span>전체 경로 색</span></div>
-      <div id="pathColorPicker" class="color-picker" data-role="path"></div>
-      <div class="ctrl-row" style="margin-top:10px;"><span>지나간 경로·마커 색</span></div>
-      <div id="progressColorPicker" class="color-picker" data-role="progress"></div>
+      <div id="themePresetList" class="theme-preset-list"></div>
     </section>
 
     <section class="settings-card">

@@ -712,7 +712,7 @@ function initMap(){
 }
 function emptyLine(){ return { type:'Feature', geometry:{ type:'LineString', coordinates:[] }, properties:{} }; }
 
-/* ============ Bottom sheets: #sidebar("여정") and #sheetPhotos("사진"), opened via
+/* ============ Bottom sheets: #sidebar("여행") and #sheetPhotos("사진"), opened via
    #mobileTabBar — universal at every viewport width. ============ */
 const SHEET_IDS = ['sidebar', 'sheetPhotos'];
 function openSheet(id){
@@ -779,7 +779,7 @@ document.querySelectorAll('.map-mode-btn').forEach(btn => {
 });
 updateMapModeButtons();
 
-/* Bottom tab bar: 맵/여정/사진/설정. Universal at every viewport width. */
+/* Bottom tab bar: 맵/여행/사진/설정. Universal at every viewport width. */
 if ($('tabMap')) $('tabMap').addEventListener('click', () => { closeAllSheets(); closeSettings(); });
 if ($('tabJourney')) $('tabJourney').addEventListener('click', () => openSheet('sidebar'));
 if ($('tabPhotos')) $('tabPhotos').addEventListener('click', () => openSheet('sheetPhotos'));
@@ -1205,20 +1205,8 @@ function renderDayTabs(){
   wrap.appendChild(del);
 }
 
-/** Index (into `clusters`) of the place row currently expanded inline in the journey
- * list, or null. Lets a user tap through several places in a row and retitle each one
- * without leaving the list (see toggleAccordion). Separate from the floating
- * #detailpanel, which is still how a map pin click shows a place's full gallery. */
-let expandedIdx = null;
-function toggleAccordion(i){
-  expandedIdx = (expandedIdx === i) ? null : i;
-  renderPlaceList();
-  if (expandedIdx !== null){
-    const row = document.querySelector(`#placelist .place[data-idx="${expandedIdx}"]`);
-    if (row) row.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-  }
-}
-
+/** Renders the 여행 list — each row opens the same #detailpanel a map pin click does
+ * (selectCluster), so there is exactly one place to view/edit/delete a place's photos. */
 function renderPlaceList(){
   renderDayTabs();
   const list = $('placelist');
@@ -1226,11 +1214,10 @@ function renderPlaceList(){
   const visible = clusters
     .map((c, i) => ({ c, i }))
     .filter(({ c }) => selectedDay == null || c.day === selectedDay);
-  if (expandedIdx != null && !visible.some(v => v.i === expandedIdx)) expandedIdx = null;
 
-  visible.forEach(({ c, i }, pos) => {
+  visible.forEach(({ c, i }) => {
     const row = document.createElement('div');
-    row.className = 'place' + (expandedIdx === i ? ' expanded' : '');
+    row.className = 'place';
     row.dataset.idx = i;
 
     const timeEl = document.createElement('div');
@@ -1262,11 +1249,6 @@ function renderPlaceList(){
     row.appendChild(thumb);
     row.appendChild(meta);
 
-    const expandIcon = document.createElement('span');
-    expandIcon.className = 'list-expand-icon material-symbols-outlined';
-    expandIcon.textContent = 'expand_more';
-    row.appendChild(expandIcon);
-
     const locate = document.createElement('button');
     locate.type = 'button';
     locate.className = 'list-locate material-symbols-outlined';
@@ -1277,56 +1259,8 @@ function renderPlaceList(){
       selectCluster(i, true);
     });
     row.appendChild(locate);
-    row.addEventListener('click', () => toggleAccordion(i));
+    row.addEventListener('click', () => selectCluster(i, true));
     list.appendChild(row);
-
-    if (expandedIdx !== i) return;
-
-    const panel = document.createElement('div');
-    panel.className = 'place-accordion';
-    panel.addEventListener('click', e => e.stopPropagation());
-
-    const titleInput = document.createElement('input');
-    titleInput.type = 'text';
-    titleInput.className = 'pa-title-input';
-    titleInput.placeholder = '장소 이름';
-    titleInput.value = c.customName || c.placeName || `장소 ${i+1}`;
-    titleInput.addEventListener('change', () => {
-      c.customName = titleInput.value.trim() || undefined;
-      renderPlaceList();
-      renderDayTimeline();
-      refreshTripTitleUI();
-    });
-    panel.appendChild(titleInput);
-
-    const navRow = document.createElement('div');
-    navRow.className = 'pa-nav-row';
-    const prevBtn = document.createElement('button');
-    prevBtn.type = 'button';
-    prevBtn.className = 'pa-nav material-symbols-outlined';
-    prevBtn.textContent = 'expand_less';
-    prevBtn.title = '이전 장소';
-    prevBtn.disabled = pos === 0;
-    prevBtn.addEventListener('click', () => toggleAccordion(visible[pos - 1].i));
-    const nextBtn = document.createElement('button');
-    nextBtn.type = 'button';
-    nextBtn.className = 'pa-nav material-symbols-outlined';
-    nextBtn.textContent = 'expand_more';
-    nextBtn.title = '다음 장소';
-    nextBtn.disabled = pos === visible.length - 1;
-    nextBtn.addEventListener('click', () => toggleAccordion(visible[pos + 1].i));
-    const delBtn = document.createElement('button');
-    delBtn.type = 'button';
-    delBtn.className = 'pa-del material-symbols-outlined';
-    delBtn.textContent = 'delete';
-    delBtn.title = '이 장소 삭제';
-    delBtn.addEventListener('click', () => deleteCluster(i));
-    navRow.appendChild(prevBtn);
-    navRow.appendChild(nextBtn);
-    navRow.appendChild(delBtn);
-    panel.appendChild(navRow);
-
-    list.appendChild(panel);
   });
 }
 function placeLabel(c){
@@ -1900,6 +1834,7 @@ function stepAnim(ts){
   const done = tickPlayback(dt);
   if (done){
     pauseAnim();
+    resetDayTimeline();
     return;
   }
   if (cineMode === 'idle' && !isPlaying) return;

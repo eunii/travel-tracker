@@ -17,7 +17,7 @@
     font-family:var(--font-body);}
   #app{display:flex;height:100vh;height:100dvh;width:100%;overflow:hidden;}
 
-  /* ---------- Bottom sheets (#sidebar="여정", #sheetPhotos="사진") — opened via
+  /* ---------- Bottom sheets (#sidebar="여행", #sheetPhotos="사진") — opened via
      #mobileTabBar tabs, universal at every viewport width, not just mobile. Both share
      this class so they present identically. ---------- */
   .bottom-sheet{background:var(--panel);
@@ -30,23 +30,24 @@
   .bottom-sheet h1{font-family:var(--font-display);font-size:20px;letter-spacing:.2px;margin:0;
     padding:18px 16px 6px;font-weight:600;text-wrap:balance;
     display:flex;align-items:center;gap:8px;}
-  .bottom-sheet h1 > .material-symbols-outlined:first-child{color:var(--accent);font-size:20px;}
+  .bottom-sheet h1 > .material-symbols-outlined:first-child{color:var(--progress, var(--accent));font-size:20px;}
   .bottom-sheet h1 button{margin-left:auto;}
   .bottom-sheet .hint{padding:0 16px 12px;color:var(--sub);font-size:12px;line-height:1.6;}
 
   .dropzone{margin:0 16px 12px;border:2px dashed var(--border);border-radius:10px;
     padding:18px 12px;text-align:center;font-size:13px;color:var(--sub);cursor:pointer;
     transition:.15s;}
-  .dropzone.drag{border-color:var(--accent);background:rgba(77,159,255,.08);color:var(--text);}
-  .dropzone b{color:var(--accent);}
+  .dropzone.drag{border-color:var(--progress, var(--accent));
+    background:color-mix(in srgb, var(--progress, var(--accent)) 8%, transparent);color:var(--text);}
+  .dropzone b{color:var(--progress, var(--accent));}
 
   .btnrow{display:flex;gap:8px;padding:0 16px 12px;}
   button{cursor:pointer;border:none;border-radius:8px;font-size:13px;font-weight:600;
     padding:9px 12px;transition:.15s;}
-  .btn-primary{background:var(--accent);color:#fff;flex:1;}
+  .btn-primary{background:var(--progress, var(--accent));color:#fff;flex:1;}
   .btn-primary:hover{filter:brightness(1.1);}
   .btn-ghost{background:var(--panel2);color:var(--text);border:1px solid var(--border);}
-  .btn-ghost:hover{border-color:var(--accent);}
+  .btn-ghost:hover{border-color:var(--progress, var(--accent));}
   .btn-icon{background:var(--panel2);color:var(--text);border:1px solid var(--border);
     padding:8px 10px;}
 
@@ -57,38 +58,41 @@
 
   .ctrl-row{display:flex;align-items:center;justify-content:space-between;font-size:12px;
     color:var(--sub);margin-bottom:6px;}
-  .ctrl-row input[type=range]{width:150px;accent-color:var(--accent);}
+  .ctrl-row input[type=range]{width:150px;accent-color:var(--progress, var(--accent));}
 
   .ctrl-row.arrival-mode-row{margin-top:10px;}
   .mode-picker{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:4px;}
   .mode-picker .mode-btn{padding:10px 8px;border-radius:10px;background:var(--panel2);
     border:1px solid var(--border);color:var(--sub);font-size:12px;font-weight:600;text-align:center;}
-  .mode-picker .mode-btn:hover{border-color:var(--accent);}
-  .mode-picker .mode-btn.active{border-color:var(--accent);background:rgba(77,159,255,.15);color:var(--text);}
+  .mode-picker .mode-btn:hover{border-color:var(--progress, var(--accent));}
+  .mode-picker .mode-btn.active{border-color:var(--progress, var(--accent));
+    background:color-mix(in srgb, var(--progress, var(--accent)) 15%, transparent);color:var(--text);}
   .mode-picker .mode-btn .mode-sub{display:block;font-size:10px;font-weight:500;color:var(--sub);
     margin-top:3px;line-height:1.3;}
 
-  .color-picker{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:4px;}
-  .color-picker .color-btn{width:28px;height:28px;border-radius:50%;border:2px solid transparent;
-    padding:0;cursor:pointer;box-shadow:inset 0 0 0 1px rgba(255,255,255,.2);}
-  .color-picker .color-btn:hover{filter:brightness(1.08);}
-  .color-picker .color-btn.active{border-color:#fff;box-shadow:0 0 0 2px var(--text);}
-  .color-picker .color-custom{width:28px;height:28px;padding:0;border:1px solid var(--border);
-    border-radius:50%;background:transparent;cursor:pointer;overflow:hidden;}
-  .color-picker .color-custom::-webkit-color-swatch-wrapper{padding:0;}
-  .color-picker .color-custom::-webkit-color-swatch{border:none;border-radius:50%;}
+  /* Curated theme presets — a short named list instead of a free color picker,
+     so users pick a matched (path, progress) pair rather than mixing any two colors. */
+  .theme-preset-list{display:flex;flex-direction:column;gap:2px;margin-top:4px;}
+  .theme-preset-row{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:12px;
+    border:none;background:transparent;color:var(--text);font-size:13px;font-weight:600;
+    text-align:left;width:100%;cursor:pointer;}
+  .theme-preset-row:hover{background:var(--panel2);}
+  .theme-preset-row.active{background:var(--outline);}
+  .theme-preset-swatch{width:22px;height:22px;border-radius:50%;flex-shrink:0;
+    background:conic-gradient(from 180deg, var(--sw-path) 0deg 180deg, var(--sw-progress) 180deg 360deg);
+    box-shadow:inset 0 0 0 1px rgba(0,0,0,.08);}
 
   #progress{padding:0 16px 12px;font-size:12px;color:var(--sub);display:none;}
   #progress .bar{height:4px;background:var(--panel2);border-radius:2px;overflow:hidden;margin-top:6px;}
-  #progress .bar i{display:block;height:100%;width:0%;background:var(--accent);transition:.15s;}
+  #progress .bar i{display:block;height:100%;width:0%;background:var(--progress, var(--accent));transition:.15s;}
 
   /* Day1/Day2/… pill tabs — picking one filters #placelist to that day (renderDayTabs) */
   .day-tabs{display:flex;gap:6px;align-items:center;padding:4px 16px 12px;overflow-x:auto;scrollbar-width:none;}
   .day-tabs::-webkit-scrollbar{display:none;}
   .day-tab{flex-shrink:0;padding:7px 16px;border-radius:999px;background:var(--panel2);
     border:1px solid var(--border);color:var(--sub);font-size:12px;font-weight:700;}
-  .day-tab:hover{border-color:var(--accent);}
-  .day-tab.active{background:var(--accent);border-color:transparent;color:#fff;}
+  .day-tab:hover{border-color:var(--progress, var(--accent));}
+  .day-tab.active{background:var(--progress, var(--accent));border-color:transparent;color:#fff;}
   .day-tab-del{margin-left:auto;flex-shrink:0;width:28px;height:28px;border-radius:8px;
     background:none;color:var(--sub);font-size:16px;display:flex;align-items:center;justify-content:center;
     padding:0;opacity:.6;}
@@ -98,42 +102,22 @@
   .place{display:flex;gap:10px;align-items:center;padding:8px;border-radius:14px;cursor:pointer;
     border:1px solid transparent;margin-bottom:4px;}
   .place:hover{background:var(--panel2);}
-  .place.active{background:color-mix(in srgb, var(--accent) 10%, transparent);border-color:var(--accent);}
+  .place.active{background:color-mix(in srgb, var(--progress, var(--accent)) 10%, transparent);
+    border-color:var(--progress, var(--accent));}
   .place .time{width:44px;flex-shrink:0;font-size:11px;font-weight:700;color:var(--sub);
     text-align:center;font-variant-numeric:tabular-nums;}
   .place .thumb{width:48px;height:48px;border-radius:10px;background-size:cover;background-position:center;
     background-color:var(--panel2);flex-shrink:0;position:relative;}
-  .place .thumb .badge{position:absolute;bottom:-4px;right:-4px;background:var(--accent);color:#fff;
+  .place .thumb .badge{position:absolute;bottom:-4px;right:-4px;background:var(--progress, var(--accent));color:#fff;
     font-size:10px;font-weight:700;border-radius:9px;padding:1px 5px;}
   .place .meta{min-width:0;flex:1;}
   .place .name{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .place .sub{font-size:11px;color:var(--sub);}
   .place .list-locate{flex-shrink:0;width:32px;height:32px;border-radius:50%;
-    background:color-mix(in srgb, var(--accent) 14%, transparent);color:var(--accent);font-size:16px;
+    background:color-mix(in srgb, var(--progress, var(--accent)) 14%, transparent);
+    color:var(--progress, var(--accent));font-size:16px;
     display:flex;align-items:center;justify-content:center;padding:0;}
-  .place .list-locate:hover{background:var(--accent);color:#fff;}
-  .place .list-expand-icon{flex-shrink:0;font-size:18px;color:var(--sub);transition:transform .2s ease;}
-  .place.expanded{background:var(--panel2);border-radius:14px 14px 0 0;}
-  .place.expanded .list-expand-icon{transform:rotate(180deg);color:var(--accent);}
-
-  /* Inline accordion — tap a place row to expand this panel right below it, so titles
-     can be edited one after another without leaving the list (prev/next moves the
-     expanded row up/down). Separate from the floating #detailpanel opened by map pins. */
-  .place-accordion{background:var(--panel2);border-radius:0 0 14px 14px;padding:10px 12px 12px;
-    margin:-4px 0 8px;display:flex;flex-direction:column;gap:8px;}
-  .place-accordion .pa-title-input{width:100%;background:var(--panel);border:1px solid var(--border);
-    border-radius:10px;color:var(--text);font-size:13px;font-weight:600;padding:9px 12px;
-    font-family:var(--font-body);}
-  .place-accordion .pa-title-input:focus{outline:none;border-color:var(--accent);}
-  .place-accordion .pa-nav-row{display:flex;align-items:center;gap:6px;}
-  .place-accordion .pa-nav{width:32px;height:32px;border-radius:8px;background:var(--panel);
-    border:1px solid var(--border);color:var(--text);font-size:18px;
-    display:flex;align-items:center;justify-content:center;padding:0;}
-  .place-accordion .pa-nav:hover{border-color:var(--accent);}
-  .place-accordion .pa-nav:disabled{opacity:.35;pointer-events:none;}
-  .place-accordion .pa-del{margin-left:auto;width:32px;height:32px;border-radius:8px;background:none;
-    color:var(--sub);font-size:16px;display:flex;align-items:center;justify-content:center;padding:0;}
-  .place-accordion .pa-del:hover{color:var(--accent2);}
+  .place .list-locate:hover{background:var(--progress, var(--accent));color:#fff;}
 
   #empty{padding:24px 16px;color:var(--sub);font-size:13px;line-height:1.6;text-align:center;}
 
@@ -153,7 +137,7 @@
   #appbar .appbar-spacer{width:36px;flex-shrink:0;}
   #appbarTitle{flex:1;min-width:0;margin:0;text-align:center;font-family:var(--font-display);
     font-size:14px;font-weight:800;letter-spacing:.06em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
-    color:var(--accent);}
+    color:var(--progress, var(--accent));}
 
   /* Prev/next location floating buttons — only meaningful once a place is selected */
   /* bottom-anchored (not top:50%) so #navNext never collides with the right-edge
@@ -186,7 +170,7 @@
   #detailpanel .dp-day-badge{font-size:9px;padding:3px 9px;order:-1;flex-basis:100%;width:fit-content;}
   #detailpanel .dp-title{font-family:var(--font-display);font-size:16px;font-weight:600;}
   #detailpanel .dp-title-input{font-family:var(--font-display);font-size:16px;font-weight:600;
-    background:var(--panel2);border:1px solid var(--accent);border-radius:6px;color:var(--text);
+    background:var(--panel2);border:1px solid var(--progress, var(--accent));border-radius:6px;color:var(--text);
     padding:2px 6px;width:170px;}
   #detailpanel .dp-edit,#detailpanel .dp-del{background:none;border:none;color:var(--sub);font-size:15px;padding:2px 4px;
     opacity:.7;}
@@ -219,8 +203,8 @@
     box-shadow:0 2px 8px rgba(0,0,0,.5);position:relative;transition:transform .15s, border-color .2s;}
   .photo-marker:hover .pin{transform:scale(1.1);}
   .photo-marker.visited .pin{border-color:var(--progress, var(--good));}
-  .photo-marker.active .pin{border-width:4px;border-color:var(--accent);
-    box-shadow:0 0 0 4px color-mix(in srgb, var(--accent) 35%, transparent), 0 4px 14px rgba(0,0,0,.35);}
+  .photo-marker.active .pin{border-width:4px;border-color:var(--progress, var(--accent));
+    box-shadow:0 0 0 4px color-mix(in srgb, var(--progress, var(--accent)) 35%, transparent), 0 4px 14px rgba(0,0,0,.35);}
   .photo-marker .count{position:absolute;bottom:-6px;right:-6px;background:var(--path, var(--sub));color:#fff;
     font-size:10px;font-weight:700;border-radius:9px;min-width:18px;text-align:center;padding:1px 4px;
     border:2px solid var(--panel);}
@@ -336,14 +320,15 @@
   #endSummary .es-l{font-size:10px;color:#667085;letter-spacing:.04em;margin-top:2px;}
   #endSummary .es-note{margin-top:10px;font-size:11px;color:#667085;text-align:center;line-height:1.4;}
 
-  /* Play/record button — a single small floating circle on the right edge. Tap toggles
-     play/pause (icon swapped via .is-playing, see app.js setPlayingState); a long-press
-     confirms and starts recording (app.js). No scrubber/speed/replay bar anymore. */
+  /* Play/record button — a single small floating circle, bottom-right just above
+     #mobileTabBar (60px tall + safe-area). Tap toggles play/pause (icon swapped via
+     .is-playing, see app.js setPlayingState); a long-press confirms and starts recording
+     (app.js). No scrubber/speed/replay bar anymore. */
   #btnPlay{display:none;position:absolute;right:calc(16px + env(safe-area-inset-right));
-    top:50%;transform:translateY(-50%);z-index:18;
+    bottom:calc(76px + env(safe-area-inset-bottom));z-index:18;
     width:52px;height:52px;border-radius:50%;padding:0;border:none;
-    background:var(--accent);color:#fff;
-    box-shadow:0 6px 20px rgba(0,0,0,.25), 0 4px 14px color-mix(in srgb, var(--accent) 45%, transparent);
+    background:var(--progress, var(--accent));color:#fff;
+    box-shadow:0 6px 20px rgba(0,0,0,.25), 0 4px 14px color-mix(in srgb, var(--progress, var(--accent)) 45%, transparent);
     align-items:center;justify-content:center;}
   #btnPlay.show{display:flex;}
   #btnPlay:hover{filter:brightness(1.08);}
@@ -413,7 +398,7 @@
   .ios-hint{display:none;margin:0 16px 12px;padding:8px 10px;background:rgba(255,193,7,.1);
     border:1px solid rgba(255,193,7,.35);border-radius:8px;font-size:11px;color:#ffd066;line-height:1.5;}
 
-  /* Bottom tab bar (맵/여정/사진/설정) — universal at every viewport width, replacing
+  /* Bottom tab bar (맵/여행/사진/설정) — universal at every viewport width, replacing
      the old desktop-sidebar / mobile-only-tabbar split. This is the only way to reach
      settings now that #appbar no longer carries a gear icon. */
   #mobileTabBar{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:70;
