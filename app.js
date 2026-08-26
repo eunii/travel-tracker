@@ -152,10 +152,11 @@ class ThemeToggleControl {
     this._btn = document.createElement('button');
     this._btn.type = 'button';
     this._btn.title = '지도 밝기 전환';
-    this._btn.textContent = mapTheme === 'dark' ? '☀️' : '🌙';
+    this._btn.className = 'material-symbols-outlined';
+    this._btn.textContent = mapTheme === 'dark' ? 'light_mode' : 'dark_mode';
     this._btn.addEventListener('click', () => {
       mapTheme = mapTheme === 'dark' ? 'light' : 'dark';
-      this._btn.textContent = mapTheme === 'dark' ? '☀️' : '🌙';
+      this._btn.textContent = mapTheme === 'dark' ? 'light_mode' : 'dark_mode';
       // full replace so custom route sources/layers are cleared cleanly, then
       // restored from the style.load → restoreRouteAfterStyle handler
       map.setStyle(buildMapStyle(mapTheme), { diff: false });
@@ -416,6 +417,8 @@ function refreshTripTitleUI(){
   if (el) el.textContent = getTripTitle();
   const ti = $('tiTitle');
   if (ti) ti.textContent = getTripTitle();
+  const ab = $('appbarTitle');
+  if (ab) ab.textContent = getTripTitle();
 }
 
 function tripDayLabel(){
@@ -819,9 +822,57 @@ if (/iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream){
 }
 if (isMobile()) openSidebar(); // 처음엔 열어서 안내가 보이게
 
+/* ============ Top app bar: search + settings ============ */
+(function setupAppbar(){
+  const appbar = $('appbar');
+  const searchInput = $('appbarSearchInput');
+  if (!appbar || !searchInput) return;
+  $('btnSearch').addEventListener('click', () => {
+    appbar.classList.toggle('searching');
+    if (appbar.classList.contains('searching')){
+      searchInput.focus();
+      openSidebar();
+    } else {
+      searchInput.value = '';
+      setPlaceListFilter('');
+    }
+  });
+  searchInput.addEventListener('input', e => setPlaceListFilter(e.target.value));
+})();
+
+function openSettings(){
+  const el = $('settingsOverlay');
+  if (!el) return;
+  el.classList.add('show');
+  el.setAttribute('aria-hidden', 'false');
+}
+function closeSettings(){
+  const el = $('settingsOverlay');
+  if (!el) return;
+  el.classList.remove('show');
+  el.setAttribute('aria-hidden', 'true');
+}
+if ($('btnSettings')) $('btnSettings').addEventListener('click', openSettings);
+if ($('settingsClose')) $('settingsClose').addEventListener('click', closeSettings);
+
+/* "지도 모드" segment in settings: real page navigation (OVERVIEW_MODE is a load-time
+   constant, not a runtime toggle — see app.js:6), guarded so loaded-but-unsaved photos
+   aren't silently lost. */
+document.querySelectorAll('.map-mode-link').forEach(link => {
+  const isCurrent = (link.dataset.target === 'overview') === OVERVIEW_MODE;
+  link.classList.toggle('active', isCurrent);
+  link.addEventListener('click', e => {
+    if (isCurrent){ e.preventDefault(); return; }
+    if (allPhotos.length && !confirm('화면을 전환하면 지금 불러온 사진이 모두 사라집니다. 계속할까요?')){
+      e.preventDefault();
+    }
+  });
+});
+
 /* ============ File intake: folder picker ============ */
 $('btnFolder').addEventListener('click', () => $('folderInput').click());
 $('btnFiles').addEventListener('click', () => $('filesInput').click());
+if ($('btnUploadFab')) $('btnUploadFab').addEventListener('click', () => $('folderInput').click());
 $('folderInput').addEventListener('change', e => handleFileList([...e.target.files]));
 $('filesInput').addEventListener('change', e => handleFileList([...e.target.files]));
 
@@ -1248,11 +1299,20 @@ function renderMarkers(){
   });
 }
 
+let placeListFilter = '';
+function setPlaceListFilter(q){
+  placeListFilter = (q || '').trim();
+  renderPlaceList();
+}
 function renderPlaceList(){
   const list = $('placelist');
   list.innerHTML = '';
+  const q = placeListFilter.toLowerCase();
+  const rows = clusters
+    .map((c, i) => ({ c, i }))
+    .filter(({ c }) => !q || placeLabel(c).toLowerCase().includes(q));
   let lastDay = null;
-  clusters.forEach((c, i) => {
+  rows.forEach(({ c, i }) => {
     if (c.day !== lastDay){
       lastDay = c.day;
       const header = document.createElement('div');
@@ -1268,9 +1328,9 @@ function renderPlaceList(){
       header.appendChild(dayMeta);
       const dayDel = document.createElement('button');
       dayDel.type = 'button';
-      dayDel.className = 'list-del';
+      dayDel.className = 'list-del material-symbols-outlined';
       dayDel.title = `Day ${dayNum} 전체 삭제`;
-      dayDel.textContent = '🗑️';
+      dayDel.textContent = 'delete';
       dayDel.addEventListener('click', e => {
         e.stopPropagation();
         deleteDay(dayNum);
@@ -1313,9 +1373,9 @@ function renderPlaceList(){
 
     const placeDel = document.createElement('button');
     placeDel.type = 'button';
-    placeDel.className = 'list-del';
+    placeDel.className = 'list-del material-symbols-outlined';
     placeDel.title = '이 장소 삭제';
-    placeDel.textContent = '🗑️';
+    placeDel.textContent = 'delete';
     placeDel.addEventListener('click', e => {
       e.stopPropagation();
       deleteCluster(i);
@@ -1374,7 +1434,9 @@ function selectCluster(i, fly){
   }
 
   $('dpTitle').textContent = placeLabel(c);
-  $('dpSub').textContent = `Day ${c.day} · ${fmtDateTime(c.startTime)}${c.endTime>c.startTime ? ' ~ '+fmtDateTime(c.endTime) : ''} · 위도 ${c.lat.toFixed(5)}, 경도 ${c.lon.toFixed(5)}`;
+  const dayBadge = $('dpDayBadge');
+  if (dayBadge) dayBadge.textContent = 'DAY ' + c.day;
+  $('dpSub').textContent = `${fmtDateTime(c.startTime)}${c.endTime>c.startTime ? ' ~ '+fmtDateTime(c.endTime) : ''} · 위도 ${c.lat.toFixed(5)}, 경도 ${c.lon.toFixed(5)}`;
   const grid = $('dpGrid'); grid.innerHTML = '';
   c.photos.forEach((p, pi) => {
     const div = document.createElement('div');
@@ -1383,10 +1445,10 @@ function selectCluster(i, fly){
     div.title = p.name;
     div.addEventListener('click', () => openLightbox(c.photos, pi));
     const del = document.createElement('button');
-    del.className = 'ph-del';
+    del.className = 'ph-del material-symbols-outlined';
     del.type = 'button';
     del.title = '이 사진 삭제';
-    del.textContent = '✕';
+    del.textContent = 'close';
     del.addEventListener('click', e => {
       e.stopPropagation();
       if (confirm('이 사진을 삭제할까요?')) deletePhoto(p, c);
@@ -1397,13 +1459,32 @@ function selectCluster(i, fly){
   bringPopupToFront($('detailpanel'));
   $('detailpanel').classList.add('show');
   if (isMobile()) closeSidebar();
+  updateNavButtons();
+}
+
+/* Prev/next floating buttons — jump between clusters in list order, reusing selectCluster. */
+function updateNavButtons(){
+  const prev = $('navPrev'), next = $('navNext');
+  if (prev) prev.disabled = !(clusters.length > 1 && activeCluster > 0);
+  if (next) next.disabled = !(clusters.length > 1 && activeCluster !== null && activeCluster < clusters.length - 1);
+}
+function goToPrevCluster(){
+  if (activeCluster === null || activeCluster <= 0) return;
+  selectCluster(activeCluster - 1, true);
+}
+function goToNextCluster(){
+  if (activeCluster === null || activeCluster >= clusters.length - 1) return;
+  selectCluster(activeCluster + 1, true);
 }
 function closeDetail(){
   $('detailpanel').classList.remove('show');
   activeCluster = null;
   markers.forEach(m => m._el.classList.remove('active'));
+  updateNavButtons();
 }
 $('dpClose').addEventListener('click', closeDetail);
+if ($('navPrev')) $('navPrev').addEventListener('click', goToPrevCluster);
+if ($('navNext')) $('navNext').addEventListener('click', goToNextCluster);
 $('dpEdit').addEventListener('click', () => {
   if (activeCluster === null) return;
   const c = clusters[activeCluster];
@@ -1915,7 +1996,6 @@ function playAnim(){
     isPlaying = true;
     lastFrameTs = null;
     syncMovingMarkerPlaying();
-    $('btnPlay').textContent = '⏸';
     rafId = requestAnimationFrame(stepAnim);
     return;
   }
@@ -1927,7 +2007,6 @@ function playAnim(){
     isPlaying = true;
     lastFrameTs = null;
     syncMovingMarkerPlaying();
-    $('btnPlay').textContent = '⏸';
     rafId = requestAnimationFrame(stepAnim);
     return;
   }
@@ -1937,7 +2016,6 @@ function playAnim(){
   isPlaying = true;
   lastFrameTs = null;
   syncMovingMarkerPlaying();
-  $('btnPlay').textContent = '⏸';
   rafId = requestAnimationFrame(stepAnim);
 }
 
@@ -1947,12 +2025,11 @@ function pauseAnim(){
   if (rafId) cancelAnimationFrame(rafId);
   rafId = null;
   syncMovingMarkerPlaying();
+  // While recording, the timeline stays compact (38px circular play/pause button) even
+  // though isRecording short-circuits the compact-off below — the pause/play icon itself
+  // is driven purely by the #timeline.is-compact CSS class (see #btnPlay markup), so
+  // leaving it compact here keeps showing the pause glyph, which is correct mid-recording.
   if (!isRecording) setTimelineCompact(false);
-  const playBtn = $('btnPlay');
-  // While recording, the timeline stays compact (38px circular button) even though
-  // isRecording short-circuits the compact-off above — keep the label icon-only so the
-  // long "▶ 미리보기" text doesn't overflow the circle.
-  if (playBtn) playBtn.textContent = isRecording ? '⏸' : '▶ 미리보기';
 }
 
 function stopAnim(){
@@ -2520,7 +2597,7 @@ async function recordAndDownload(){
     setRecordStatus('');
     btn.disabled = false;
     if (playBtn) playBtn.disabled = false;
-    btn.textContent = '📥 저장';
+    btn.innerHTML = '<span class="material-symbols-outlined">download</span> 저장';
     isRecording = false;
     setTimelineCompact(false);
     camFollow = (OVERVIEW_MODE ? false : true);

@@ -8,13 +8,14 @@
 <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/exifr@7.1.3/dist/full.umd.js"></script>
 <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@latest/dist/web/static/pretendard.css" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,300..500,0..1,-25..0&display=swap" rel="stylesheet">
 <link href="style.css" rel="stylesheet">
 </head>
 <body>
 <div id="app">
   <div id="recordStatus" aria-live="polite"></div>
   <div id="sidebar">
-    <h1>📍 여행 트레커 <button id="sidebarClose">✕</button></h1>
+    <h1><span class="material-symbols-outlined">location_on</span> 여행 트레커 <button id="sidebarClose" class="material-symbols-outlined">close</button></h1>
     <div class="hint">폴더를 선택하면 안의 모든 사진(하위 폴더 포함)을 읽어 GPS/촬영시각을 추출합니다. 사진은 서버로 전송되지 않고 브라우저 안에서만 처리됩니다.</div>
     <div class="ios-hint" id="iosHint">📱 iPhone은 "폴더 선택"이 지원되지 않습니다. 아래 <b>🖼️ 사진 여러 장 선택</b> 버튼으로 갤러리에서 사진을 여러 장 골라주세요.</div>
 
@@ -22,8 +23,8 @@
       사진 폴더를 여기로 <b>드래그 앤 드롭</b>하거나<br>아래 버튼으로 선택하세요
     </div>
     <div class="btnrow">
-      <button class="btn-primary" id="btnFolder">📁 폴더 선택</button>
-      <button class="btn-icon" id="btnFiles" title="폴더 선택이 안 될 때: 사진 여러 장 직접 선택">🖼️</button>
+      <button class="btn-primary" id="btnFolder"><span class="material-symbols-outlined">folder_open</span> 폴더 선택</button>
+      <button class="btn-icon material-symbols-outlined" id="btnFiles" title="폴더 선택이 안 될 때: 사진 여러 장 직접 선택">photo_library</button>
     </div>
 
     <div id="progress">
@@ -38,44 +39,6 @@
       <div class="stat"><div class="n" id="statRange" style="font-size:12px;">-</div><div class="l">기간</div></div>
     </div>
 
-    <div id="controls">
-      <div class="ctrl-row">
-        <span>여행 스케일</span>
-      </div>
-      <div id="scalePicker" class="scale-picker">
-        <button class="scale-btn" data-scale="day"><span class="scale-emoji">🏘️</span><span>하루 나들이</span></button>
-        <button class="scale-btn" data-scale="city"><span class="scale-emoji">🏙️</span><span>도시간 이동</span></button>
-        <button class="scale-btn" data-scale="country"><span class="scale-emoji">🌏</span><span>국가간 이동</span></button>
-      </div>
-
-      <div class="ctrl-row" style="margin-top:10px;">
-        <span>이동 마커 모양</span>
-      </div>
-      <div id="iconPicker" class="icon-picker"></div>
-
-      <div class="ctrl-row" style="margin-top:10px;">
-        <span>전체 경로 색</span>
-      </div>
-      <div id="pathColorPicker" class="color-picker" data-role="path"></div>
-
-      <div class="ctrl-row" style="margin-top:10px;">
-        <span>지나간 경로·마커 색</span>
-      </div>
-      <div id="progressColorPicker" class="color-picker" data-role="progress"></div>
-
-      <div class="ctrl-row arrival-mode-row">
-        <span>도착 연출</span>
-      </div>
-      <div id="arrivalModePicker" class="mode-picker">
-        <button type="button" class="mode-btn active" data-mode="move">이동만
-          <span class="mode-sub">상단 진행 바만</span>
-        </button>
-        <button type="button" class="mode-btn" data-mode="popup">팝업
-          <span class="mode-sub">상단 바 + 사진 슬라이드</span>
-        </button>
-      </div>
-    </div>
-
     <div id="empty">
       아직 불러온 사진이 없습니다.<br>왼쪽 위 버튼으로 폴더를 선택해 보세요.
     </div>
@@ -84,15 +47,29 @@
         <div class="tt-label">여행 제목</div>
         <div class="tt-name" id="tripTitleLabel">나의 여행</div>
       </div>
-      <button type="button" class="tt-edit" id="btnTripTitle" title="여행 제목 바꾸기">✏️</button>
+      <button type="button" class="tt-edit material-symbols-outlined" id="btnTripTitle" title="여행 제목 바꾸기">edit</button>
     </div>
     <div id="placelist"></div>
   </div>
 
   <div id="mapwrap">
     <div id="map"></div>
-    <button id="sidebarToggle">☰</button>
+    <button id="sidebarToggle" class="material-symbols-outlined">menu</button>
     <div id="backdrop"></div>
+
+    <div id="appbar" class="glass-panel">
+      <button id="btnSearch" class="material-symbols-outlined" title="장소 검색">search</button>
+      <div id="appbarSearchWrap">
+        <input type="text" id="appbarSearchInput" placeholder="장소 검색…" autocomplete="off">
+      </div>
+      <h1 id="appbarTitle">여행 트레커</h1>
+      <button id="btnSettings" class="material-symbols-outlined" title="설정">tune</button>
+    </div>
+
+    <button id="navPrev" class="icon-btn-float" title="이전 장소" disabled><span class="material-symbols-outlined">chevron_left</span></button>
+    <button id="navNext" class="icon-btn-float" title="다음 장소" disabled><span class="material-symbols-outlined">chevron_right</span></button>
+
+    <button id="btnUploadFab" class="material-symbols-outlined" title="사진 폴더 추가">add</button>
 
     <div id="dayTimeline" class="day-timeline" aria-hidden="true"></div>
 
@@ -126,14 +103,15 @@
       <div class="dp-head">
         <div>
           <div class="dp-title-row">
+            <span class="dp-day-badge chip" id="dpDayBadge">DAY 1</span>
             <div class="dp-title" id="dpTitle">장소</div>
-            <button class="dp-edit" id="dpEdit" title="이름 바꾸기">✏️</button>
+            <button class="dp-edit material-symbols-outlined" id="dpEdit" title="이름 바꾸기">edit</button>
           </div>
           <div class="dp-sub" id="dpSub"></div>
         </div>
         <div class="dp-head-actions">
-          <button class="dp-del" id="dpDel" title="이 장소 삭제">🗑️</button>
-          <button class="dp-close" id="dpClose">✕</button>
+          <button class="dp-del material-symbols-outlined" id="dpDel" title="이 장소 삭제">delete</button>
+          <button class="dp-close material-symbols-outlined" id="dpClose">close</button>
         </div>
       </div>
       <div class="dp-grid" id="dpGrid"></div>
@@ -143,8 +121,8 @@
     <div id="timeline">
       <button type="button" class="tl-handle" id="tlHandle" title="재생바 접기/펼치기" aria-label="재생바 접기/펼치기"></button>
       <div class="tl-body">
-        <button id="btnPlay" title="미리보기로 동선 재생">▶ 미리보기</button>
-        <button id="btnRecord" title="동선 재생을 동영상으로 저장">📥 저장</button>
+        <button id="btnPlay" title="미리보기로 동선 재생"><span class="material-symbols-outlined tl-play-icon"></span><span class="tl-btn-label">미리보기</span></button>
+        <button id="btnRecord" title="동선 재생을 동영상으로 저장"><span class="material-symbols-outlined">download</span> 저장</button>
         <div class="tl-mid">
           <input type="range" id="tlRange" min="0" max="1000" value="0">
           <div class="tl-labels">
@@ -159,19 +137,73 @@
           <option value="2">2×</option>
           <option value="4">4×</option>
         </select>
-        <button class="btn-icon" id="btnReplay" title="처음으로">⟲</button>
+        <button class="btn-icon material-symbols-outlined" id="btnReplay" title="처음으로">replay</button>
       </div>
     </div>
   </div>
 </div>
 
+<div id="settingsOverlay" aria-hidden="true">
+  <div class="settings-head glass-panel">
+    <h2><span class="material-symbols-outlined">tune</span> 설정</h2>
+    <button id="settingsClose" class="material-symbols-outlined" title="닫기">close</button>
+  </div>
+  <div class="settings-body">
+    <section class="settings-card">
+      <h3>여행 스케일</h3>
+      <div id="scalePicker" class="scale-picker">
+        <button class="scale-btn" data-scale="day"><span class="material-symbols-outlined">holiday_village</span><span>하루 나들이</span></button>
+        <button class="scale-btn" data-scale="city"><span class="material-symbols-outlined">location_city</span><span>도시간 이동</span></button>
+        <button class="scale-btn" data-scale="country"><span class="material-symbols-outlined">public</span><span>국가간 이동</span></button>
+      </div>
+    </section>
+
+    <section class="settings-card">
+      <h3>이동 마커 모양</h3>
+      <div id="iconPicker" class="icon-picker"></div>
+    </section>
+
+    <section class="settings-card">
+      <h3>테마 색상</h3>
+      <div class="ctrl-row"><span>전체 경로 색</span></div>
+      <div id="pathColorPicker" class="color-picker" data-role="path"></div>
+      <div class="ctrl-row" style="margin-top:10px;"><span>지나간 경로·마커 색</span></div>
+      <div id="progressColorPicker" class="color-picker" data-role="progress"></div>
+    </section>
+
+    <section class="settings-card">
+      <h3>도착 연출</h3>
+      <div id="arrivalModePicker" class="mode-picker">
+        <button type="button" class="mode-btn active" data-mode="move">이동만
+          <span class="mode-sub">상단 진행 바만</span>
+        </button>
+        <button type="button" class="mode-btn" data-mode="popup">팝업
+          <span class="mode-sub">상단 바 + 사진 슬라이드</span>
+        </button>
+      </div>
+    </section>
+
+    <section class="settings-card">
+      <h3>지도 모드</h3>
+      <div class="mode-picker">
+        <a href="focus.html" class="mode-btn map-mode-link" data-target="focus">포커스 지도
+          <span class="mode-sub">카메라가 따라 이동</span>
+        </a>
+        <a href="overview.html" class="mode-btn map-mode-link" data-target="overview">전체지도
+          <span class="mode-sub">전체 고정, 위치만 이동</span>
+        </a>
+      </div>
+    </section>
+  </div>
+</div>
+
 <div id="lightbox">
-  <button class="lb-close" id="lbClose">✕</button>
-  <button class="lb-del" id="lbDel" title="이 사진 삭제">🗑️</button>
-  <button class="lb-nav lb-prev" id="lbPrev">‹</button>
+  <button class="lb-close material-symbols-outlined" id="lbClose">close</button>
+  <button class="lb-del material-symbols-outlined" id="lbDel" title="이 사진 삭제">delete</button>
+  <button class="lb-nav lb-prev material-symbols-outlined" id="lbPrev">chevron_left</button>
   <img id="lbImg" src="">
   <div class="lb-info" id="lbInfo"></div>
-  <button class="lb-nav lb-next" id="lbNext">›</button>
+  <button class="lb-nav lb-next material-symbols-outlined" id="lbNext">chevron_right</button>
 </div>
 
 <input type="file" id="folderInput" webkitdirectory directory multiple hidden>
