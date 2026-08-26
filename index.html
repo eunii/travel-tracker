@@ -4,52 +4,42 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>여행 트레커</title>
+<script src="https://cdn.tailwindcss.com"></script>
 <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@latest/dist/web/static/pretendard.css" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,300..500,0..1,-25..0&display=swap" rel="stylesheet">
 <style>
-  :root{
-    --bg:#0b1326; --panel:#171f33; --panel2:#222a3d; --border:#2d3449; --outline:#424754;
-    --text:#e8ecfb; --sub:#94a0ba; --accent:#2eb27c;
-    --font-body:'Pretendard','Pretendard Variable',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Malgun Gothic",sans-serif;
-    --font-display:'Pretendard','Pretendard Variable',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Malgun Gothic",sans-serif;
-  }
-  *{box-sizing:border-box;}
+  body{font-family:'Pretendard','Pretendard Variable',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Malgun Gothic",sans-serif;}
   .material-symbols-outlined{font-variation-settings:'FILL' 0,'wght' 500,'GRAD' 0,'opsz' 24;line-height:1;vertical-align:middle;}
-  html,body{margin:0;padding:0;height:100%;background:var(--bg);color:var(--text);font-family:var(--font-body);}
-  body{display:flex;align-items:center;justify-content:center;height:100vh;height:100dvh;padding:24px;}
-  .wrap{width:100%;max-width:640px;}
-  h1{font-family:var(--font-display);font-weight:600;font-size:clamp(24px,4vw,32px);margin:0 0 8px;
-    text-align:center;display:flex;align-items:center;justify-content:center;gap:8px;}
-  h1 .material-symbols-outlined{font-size:.85em;color:var(--accent);}
-  .sub{color:var(--sub);font-size:14px;text-align:center;margin:0 0 32px;line-height:1.6;}
-  .modes{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
-  @media (max-width:520px){.modes{grid-template-columns:1fr;}}
-  .mode-card{display:block;background:color-mix(in srgb, var(--panel) 90%, transparent);
-    backdrop-filter:blur(14px);border:1px solid var(--outline);border-radius:20px;
-    padding:22px 20px;text-decoration:none;color:var(--text);transition:.15s;
-    box-shadow:0 8px 30px rgba(0,0,0,.35);}
-  .mode-card:hover{border-color:var(--accent);background:var(--panel2);transform:translateY(-2px);}
-  .mode-icon{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;
-    margin-bottom:12px;background:color-mix(in srgb, var(--accent) 18%, transparent);color:var(--accent);}
-  .mode-icon .material-symbols-outlined{font-size:24px;}
-  .mode-title{font-family:var(--font-display);font-weight:600;font-size:18px;margin-bottom:6px;}
-  .mode-desc{color:var(--sub);font-size:12.5px;line-height:1.6;}
 </style>
 </head>
-<body>
-<div class="wrap">
-  <h1><span class="material-symbols-outlined">location_on</span> 여행 트레커</h1>
-  <p class="sub">사진 속 GPS로 여행 경로를 그려주는 지도. 보고 싶은 방식을 골라주세요.</p>
-  <div class="modes">
-    <a class="mode-card" href="focus.html">
-      <span class="mode-icon"><span class="material-symbols-outlined">videocam</span></span>
-      <div class="mode-title">포커스 지도</div>
-      <div class="mode-desc">카메라가 여행자를 따라 이동하며 줌인/줌아웃하는 시네마틱 연출</div>
+<body class="bg-slate-50 text-slate-900 min-h-screen min-h-[100dvh] flex items-center justify-center p-6">
+<div class="w-full max-w-2xl">
+  <h1 class="flex items-center justify-center gap-2 text-2xl sm:text-3xl font-bold text-center mb-2">
+    <span class="material-symbols-outlined text-sky-500 text-[.85em]">location_on</span>
+    여행 트레커
+  </h1>
+  <p class="text-slate-500 text-sm text-center mb-8 leading-relaxed">사진 속 GPS로 여행 경로를 그려주는 지도. 보고 싶은 방식을 골라주세요.</p>
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+    <a href="focus.html" class="block bg-white border border-slate-100 rounded-2xl p-5 shadow-sm hover:shadow-md hover:border-sky-200 transition-all">
+      <span class="w-11 h-11 rounded-xl bg-sky-50 text-sky-500 flex items-center justify-center mb-3">
+        <span class="material-symbols-outlined text-2xl">videocam</span>
+      </span>
+      <div class="font-bold text-base mb-1.5">포커스 지도</div>
+      <div class="text-slate-500 text-xs leading-relaxed">카메라가 여행자를 따라 이동하며 줌인/줌아웃하는 시네마틱 연출</div>
     </a>
-    <a class="mode-card" href="overview.html">
-      <span class="mode-icon"><span class="material-symbols-outlined">map</span></span>
-      <div class="mode-title">전체지도</div>
-      <div class="mode-desc">모든 핀이 보이도록 카메라를 고정하고, 위치만 경로를 따라 이동</div>
+    <a href="overview.html" class="block bg-white border border-slate-100 rounded-2xl p-5 shadow-sm hover:shadow-md hover:border-sky-200 transition-all">
+      <span class="w-11 h-11 rounded-xl bg-sky-50 text-sky-500 flex items-center justify-center mb-3">
+        <span class="material-symbols-outlined text-2xl">map</span>
+      </span>
+      <div class="font-bold text-base mb-1.5">전체지도</div>
+      <div class="text-slate-500 text-xs leading-relaxed">모든 핀이 보이도록 카메라를 고정하고, 위치만 경로를 따라 이동</div>
+    </a>
+    <a href="overview.html#settings" class="block bg-white border border-slate-100 rounded-2xl p-5 shadow-sm hover:shadow-md hover:border-sky-200 transition-all">
+      <span class="w-11 h-11 rounded-xl bg-sky-50 text-sky-500 flex items-center justify-center mb-3">
+        <span class="material-symbols-outlined text-2xl">tune</span>
+      </span>
+      <div class="font-bold text-base mb-1.5">설정</div>
+      <div class="text-slate-500 text-xs leading-relaxed">테마 색상, 도착 연출, 지도 모드를 미리 정하고 시작</div>
     </a>
   </div>
 </div>

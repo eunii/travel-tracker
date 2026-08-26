@@ -12,31 +12,8 @@ let markers = [];
 let activeCluster = null;
 let map = null;
 let movingMarker = null;
-let movingIconType = 'airplane';
 let pathColor = '#8b93a7';       // full / upcoming route (dashed)
 let progressColor = '#3ecf8e';   // traveled line + marker icon
-// Lucide paths (same shapes as lucide-animated.com)
-const MARKER_ICON_PATHS = {
-  airplane: '<path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/>',
-  'chess-king': '<path d="M4 20a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v1a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/><path d="m6.7 18-1-1C4.35 15.682 3 14.09 3 12a5 5 0 0 1 4.95-5c1.584 0 2.7.455 4.05 1.818C13.35 7.455 14.466 7 16.05 7A5 5 0 0 1 21 12c0 2.082-1.359 3.673-2.7 5l-1 1"/><path d="M10 4h4"/><path d="M12 2v6.818"/>',
-  heart: '<path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/>',
-  moon: '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>',
-  rabbit: '<path d="M13 16a3 3 0 0 1 2.24 5"/><path d="M18 12h.01"/><path d="M18 21h-8a4 4 0 0 1-4-4 7 7 0 0 1 7-7h.2L9.6 6.4a1 1 0 1 1 2.8-2.8L15.8 7h.2c3.3 0 6 2.7 6 6v1a2 2 0 0 1-2 2h-1a3 3 0 0 0-3 3"/><path d="M20 8.54V4a2 2 0 1 0-4 0v3"/><path d="M7.612 12.524a3 3 0 1 0-1.6 4.3"/>',
-  ship: '<path d="M12 10.189V14"/><path d="M12 2v3"/><path d="M19 13V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6"/><path d="M19.38 20A11.6 11.6 0 0 0 21 14l-8.188-3.639a2 2 0 0 0-1.624 0L3 14a11.6 11.6 0 0 0 2.81 7.76"/><path d="M2 21c.6.5 1.2 1 2.5 1 2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1s1.2 1 2.5 1c2.5 0 2.5-2 5-2 1.3 0 1.9.5 2.5 1"/>',
-  smile: '<circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" x2="9.01" y1="9" y2="9"/><line x1="15" x2="15.01" y1="9" y2="9"/>',
-  truck: '<path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/>',
-  users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>'
-};
-const MARKER_ICON_LABELS = {
-  airplane: '비행기', 'chess-king': '킹', heart: '하트', moon: '달', rabbit: '토끼',
-  ship: '배', smile: '스마일', truck: '트럭', users: '사람들'
-};
-function iconSvgHtml(name, size){
-  size = size || 20;
-  const inner = MARKER_ICON_PATHS[name];
-  if (!inner) return '';
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`;
-}
 let segDurations = [];     // ms per travel hop at speed=1
 let segDwells = [];        // ms per place dwell (arrival hold)
 let segKm = [];            // hop distance km
@@ -145,26 +122,14 @@ function buildMapStyle(theme){
   };
 }
 
-class ThemeToggleControl {
-  onAdd(){
-    this._container = document.createElement('div');
-    this._container.className = 'maplibregl-ctrl maplibregl-ctrl-group theme-toggle-ctrl';
-    this._btn = document.createElement('button');
-    this._btn.type = 'button';
-    this._btn.title = '지도 밝기 전환';
-    this._btn.className = 'material-symbols-outlined';
-    this._btn.textContent = mapTheme === 'dark' ? 'light_mode' : 'dark_mode';
-    this._btn.addEventListener('click', () => {
-      mapTheme = mapTheme === 'dark' ? 'light' : 'dark';
-      this._btn.textContent = mapTheme === 'dark' ? 'light_mode' : 'dark_mode';
-      // full replace so custom route sources/layers are cleared cleanly, then
-      // restored from the style.load → restoreRouteAfterStyle handler
-      map.setStyle(buildMapStyle(mapTheme), { diff: false });
-    });
-    this._container.appendChild(this._btn);
-    return this._container;
-  }
-  onRemove(){ this._container.parentNode.removeChild(this._container); }
+/** Lives in #appbar's #btnThemeToggle now (was a floating MapLibre control). */
+function toggleMapTheme(){
+  mapTheme = mapTheme === 'dark' ? 'light' : 'dark';
+  const btn = $('btnThemeToggle');
+  if (btn) btn.textContent = mapTheme === 'dark' ? 'light_mode' : 'dark_mode';
+  // full replace so custom route sources/layers are cleared cleanly, then
+  // restored from the style.load → restoreRouteAfterStyle handler
+  map.setStyle(buildMapStyle(mapTheme), { diff: false });
 }
 
 /** Line paint: dashed overall path vs solid traveled progress. */
@@ -731,7 +696,6 @@ function initMap(){
     preserveDrawingBuffer: true
   });
   map.addControl(new maplibregl.NavigationControl(), 'top-right');
-  map.addControl(new ThemeToggleControl(), 'top-right');
   map.addControl(new maplibregl.AttributionControl({compact:true}), 'bottom-right');
 
   map.on('load', setupRouteLayers);
@@ -747,10 +711,9 @@ function initMap(){
 }
 function emptyLine(){ return { type:'Feature', geometry:{ type:'LineString', coordinates:[] }, properties:{} }; }
 
-/* ============ Mobile sidebar drawer ============ */
+/* ============ Sidebar-as-sheet (opened via #mobileTabBar's "여정" tab) ============ */
 function openSidebar(){ $('sidebar').classList.add('open'); $('backdrop').classList.add('show'); }
 function closeSidebar(){ $('sidebar').classList.remove('open'); $('backdrop').classList.remove('show'); }
-$('sidebarToggle').addEventListener('click', openSidebar);
 $('sidebarClose').addEventListener('click', closeSidebar);
 $('backdrop').addEventListener('click', closeSidebar);
 const isMobile = () => window.innerWidth <= 820;
@@ -838,8 +801,9 @@ function closeSettings(){
   el.classList.remove('show');
   el.setAttribute('aria-hidden', 'true');
 }
-if ($('btnSettings')) $('btnSettings').addEventListener('click', openSettings);
 if ($('settingsClose')) $('settingsClose').addEventListener('click', closeSettings);
+if (location.hash === '#settings') openSettings(); // deep link from index.html's "설정" card
+if ($('btnThemeToggle')) $('btnThemeToggle').addEventListener('click', toggleMapTheme);
 
 /* "지도 모드" segment in settings: real page navigation (OVERVIEW_MODE is a load-time
    constant, not a runtime toggle — see app.js:6), guarded so loaded-but-unsaved photos
@@ -1138,25 +1102,7 @@ document.querySelectorAll('#scalePicker .scale-btn').forEach(btn => {
   });
 });
 
-/* ============ Moving marker icon + color ============ */
-(function buildIconPicker(){
-  const box = $('iconPicker');
-  Object.keys(MARKER_ICON_PATHS).forEach(id => {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'icon-btn' + (id === movingIconType ? ' active' : '');
-    btn.dataset.icon = id;
-    btn.title = MARKER_ICON_LABELS[id] || id;
-    btn.innerHTML = iconSvgHtml(id, 20);
-    btn.addEventListener('click', () => {
-      movingIconType = id;
-      document.querySelectorAll('#iconPicker .icon-btn').forEach(b => b.classList.toggle('active', b === btn));
-      applyMarkerIcon();
-    });
-    box.appendChild(btn);
-  });
-})();
-
+/* ============ Moving marker color ============ */
 const COLOR_SWATCHES = [
   { hex:'#8b93a7', label:'그레이' },
   { hex:'#3ecf8e', label:'민트' },
@@ -1256,14 +1202,13 @@ setThemeColor('progress', progressColor);
   });
 })();
 
+/** Rebuilds the moving marker's DOM — just the progress-color dot, no icon badge. */
 function applyMarkerIcon(){
   if (!movingMarker) return;
   const el = movingMarker.getElement();
   const keepBubble = arrivalBubbleLabel;
   el.className = 'moving-marker';
-  const svg = iconSvgHtml(movingIconType, 18);
-  el.innerHTML = '<span class="core"></span>' +
-    (svg ? `<span class="icon-badge" data-icon="${movingIconType}">${svg}</span>` : '');
+  el.innerHTML = '<span class="core"></span>';
   syncMovingMarkerPlaying();
   if (keepBubble && arrivalMode === 'move') setArrivalBubble(keepBubble);
 }
@@ -1291,43 +1236,58 @@ function renderMarkers(){
   });
 }
 
+let selectedDay = null;
+
+/** Distinct day numbers present in `clusters`, in order. */
+function dayNumbers(){
+  const days = [];
+  clusters.forEach(c => { if (!days.includes(c.day)) days.push(c.day); });
+  return days;
+}
+
+/** Day1/Day2/… pill tabs above the place list — picking one filters renderPlaceList
+ * to just that day, replacing the old always-scrolling list with inline day headers. */
+function renderDayTabs(){
+  const wrap = $('dayTabs');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  const days = dayNumbers();
+  if (!days.length){ selectedDay = null; return; }
+  if (!days.includes(selectedDay)) selectedDay = days[0];
+  days.forEach(d => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'day-tab' + (d === selectedDay ? ' active' : '');
+    btn.textContent = 'Day ' + d;
+    btn.addEventListener('click', () => {
+      selectedDay = d;
+      renderDayTabs();
+      renderPlaceList();
+    });
+    wrap.appendChild(btn);
+  });
+  const del = document.createElement('button');
+  del.type = 'button';
+  del.className = 'day-tab-del material-symbols-outlined';
+  del.title = `Day ${selectedDay} 전체 삭제`;
+  del.textContent = 'delete';
+  del.addEventListener('click', () => deleteDay(selectedDay));
+  wrap.appendChild(del);
+}
+
 function renderPlaceList(){
+  renderDayTabs();
   const list = $('placelist');
   list.innerHTML = '';
-  let lastDay = null;
   clusters.forEach((c, i) => {
-    if (c.day !== lastDay){
-      lastDay = c.day;
-      const header = document.createElement('div');
-      header.className = 'day-header';
-      const dayNum = c.day;
-      const dayTag = document.createElement('span');
-      dayTag.className = 'day-tag';
-      dayTag.textContent = 'Day ' + dayNum;
-      const dayMeta = document.createElement('span');
-      dayMeta.className = 'day-meta';
-      dayMeta.textContent = fmtDateShort(c.startTime);
-      header.appendChild(dayTag);
-      header.appendChild(dayMeta);
-      const dayDel = document.createElement('button');
-      dayDel.type = 'button';
-      dayDel.className = 'list-del material-symbols-outlined';
-      dayDel.title = `Day ${dayNum} 전체 삭제`;
-      dayDel.textContent = 'delete';
-      dayDel.addEventListener('click', e => {
-        e.stopPropagation();
-        deleteDay(dayNum);
-      });
-      header.appendChild(dayDel);
-      list.appendChild(header);
-    }
+    if (selectedDay != null && c.day !== selectedDay) return;
     const row = document.createElement('div');
     row.className = 'place';
     row.dataset.idx = i;
 
-    const idxEl = document.createElement('div');
-    idxEl.className = 'idx';
-    idxEl.textContent = String(i + 1);
+    const timeEl = document.createElement('div');
+    timeEl.className = 'time';
+    timeEl.textContent = fmtTimeShort(c.startTime);
 
     const thumb = document.createElement('div');
     thumb.className = 'thumb';
@@ -1343,27 +1303,27 @@ function renderPlaceList(){
     meta.className = 'meta';
     const nameEl = document.createElement('div');
     nameEl.className = 'name';
-    nameEl.textContent = placeLabel(c);
-    const timeEl = document.createElement('div');
-    timeEl.className = 'time';
-    timeEl.textContent = fmtDateShort(c.startTime) + (c.endTime > c.startTime ? ' ~ ' + fmtDateShort(c.endTime) : '');
+    nameEl.textContent = c.customName || c.placeName || `장소 ${i+1}`;
+    const subEl = document.createElement('div');
+    subEl.className = 'sub';
+    subEl.textContent = `사진 ${c.photos.length}장`;
     meta.appendChild(nameEl);
-    meta.appendChild(timeEl);
+    meta.appendChild(subEl);
 
-    row.appendChild(idxEl);
+    row.appendChild(timeEl);
     row.appendChild(thumb);
     row.appendChild(meta);
 
-    const placeDel = document.createElement('button');
-    placeDel.type = 'button';
-    placeDel.className = 'list-del material-symbols-outlined';
-    placeDel.title = '이 장소 삭제';
-    placeDel.textContent = 'delete';
-    placeDel.addEventListener('click', e => {
+    const locate = document.createElement('button');
+    locate.type = 'button';
+    locate.className = 'list-locate material-symbols-outlined';
+    locate.title = '이 장소로 이동';
+    locate.textContent = 'my_location';
+    locate.addEventListener('click', e => {
       e.stopPropagation();
-      deleteCluster(i);
+      selectCluster(i, true);
     });
-    row.appendChild(placeDel);
+    row.appendChild(locate);
     row.addEventListener('click', () => selectCluster(i, true));
     list.appendChild(row);
   });
@@ -1507,7 +1467,7 @@ function deletePhotos(photos, opts){
     resetState();
     $('stats').style.display = 'none';
     $('tripTitleTab').style.display = 'none';
-    $('empty').innerHTML = '아직 불러온 사진이 없습니다.<br>왼쪽 위 버튼으로 폴더를 선택해 보세요.';
+    $('empty').innerHTML = '아직 불러온 사진이 없습니다.<br>위 폴더 선택 버튼으로 시작해 보세요.';
     $('empty').style.display = 'block';
     return;
   }
@@ -2108,38 +2068,11 @@ async function waitExportFontsReady(){
 }
 
 /**
- * Approximates the .icon-badge[data-icon] CSS @keyframes (style.css mm-fly/mm-hop/etc)
- * for the canvas export path, which draws a static icon image instead of an animated
- * DOM element. Runs on wall-clock time like the CSS animations do (unaffected by the
- * timeline speed multiplier).
- */
-function exportIconWiggle(iconType, tMs){
-  const tri = period => { const f = (tMs % period) / period; return f < 0.5 ? f / 0.5 : 1 - (f - 0.5) / 0.5; };
-  const lerp = (a, b, f) => a + (b - a) * f;
-  switch (iconType){
-    case 'airplane': { const f = tri(1100); return { dx: lerp(0, 3, f), dy: lerp(0, -4, f), rot: lerp(-8, 8, f), scale: 1 }; }
-    case 'heart': return { dx: 0, dy: 0, rot: 0, scale: lerp(1, 1.14, tri(700)) };
-    case 'moon': return { dx: 0, dy: 0, rot: lerp(-12, 12, tri(1600)), scale: 1 };
-    case 'chess-king': return { dx: 0, dy: 0, rot: lerp(-12, 12, tri(1800)), scale: 1 };
-    case 'rabbit': {
-      const period = 550, f = (tMs % period) / period;
-      const dy = f < 0.4 ? lerp(0, -6, f / 0.4) : f < 0.6 ? lerp(-6, -2, (f - 0.4) / 0.2) : lerp(-2, 0, (f - 0.6) / 0.4);
-      return { dx: 0, dy, rot: 0, scale: 1 };
-    }
-    case 'ship': { const f = tri(1400); return { dx: 0, dy: lerp(0, 2, f), rot: lerp(-6, 6, f), scale: 1 }; }
-    case 'truck': { const a = tMs / 450 * Math.PI * 2; return { dx: Math.sin(a), dy: -Math.sin(a), rot: 0, scale: 1 }; }
-    case 'smile': return { dx: 0, dy: lerp(0, -3, tri(1000)), rot: 0, scale: 1 };
-    case 'users': return { dx: 0, dy: lerp(0, -3, tri(1100)), rot: 0, scale: 1 };
-    default: return { dx: 0, dy: 0, rot: 0, scale: 1 };
-  }
-}
-
-/**
  * iOS fallback recording path: redraw the map canvas + pins + overlay cards onto an
  * offscreen canvas every frame (used with canvas.captureStream, see recordViaCanvas).
  * iOS has no getDisplayMedia/CropTarget, so there is no way to record the real DOM there.
  */
-function drawExportFrame(ctx, outW, outH, markerImgs, exportIconImg, visitedSet, slideImgMap, nowMs){
+function drawExportFrame(ctx, outW, outH, markerImgs, visitedSet, slideImgMap){
   visitedSet = visitedSet || new Set();
   slideImgMap = slideImgMap || null;
   const mapCanvas = map.getCanvas();
@@ -2171,7 +2104,7 @@ function drawExportFrame(ctx, outW, outH, markerImgs, exportIconImg, visitedSet,
       ctx.arc(x + r * 0.7, y + r * 0.7, br, 0, Math.PI * 2);
       ctx.fillStyle = visitedSet.has(i) ? progressColor : pathColor;
       ctx.fill();
-      ctx.fillStyle = visitedSet.has(i) ? '#08131f' : '#fff';
+      ctx.fillStyle = '#fff';
       ctx.font = `bold ${11 * Math.min(sx, sy)}px ${exportFontStack()}`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
@@ -2193,18 +2126,6 @@ function drawExportFrame(ctx, outW, outH, markerImgs, exportIconImg, visitedSet,
     ctx.strokeStyle = '#fff';
     ctx.lineWidth = 2 * Math.min(sx, sy);
     ctx.stroke();
-    if (exportIconImg){
-      const iw = 20 * Math.min(sx, sy);
-      const wig = exportIconWiggle(movingIconType, nowMs || 0);
-      const icx = x + wig.dx * s;
-      const icy = y - core - iw - 2 * sy + wig.dy * s;
-      ctx.save();
-      ctx.translate(icx + iw / 2, icy + iw / 2);
-      ctx.rotate(wig.rot * Math.PI / 180);
-      ctx.scale(wig.scale, wig.scale);
-      ctx.drawImage(exportIconImg, -iw / 2, -iw / 2, iw, iw);
-      ctx.restore();
-    }
     if (arrivalBubbleLabel && arrivalMode === 'move' && !spotCardState){
       const fontPx = Math.max(11, 12 * s);
       ctx.font = `600 ${fontPx}px ${exportFontStack()}`;
@@ -2215,7 +2136,7 @@ function drawExportFrame(ctx, outW, outH, markerImgs, exportIconImg, visitedSet,
       const bw = Math.min(200 * s, textW + padX * 2);
       const bh = fontPx + padY * 2;
       const bx = x - bw / 2;
-      const by = y - core - (exportIconImg ? 24 * s : 8 * s) - bh - 8 * s;
+      const by = y - core - 8 * s - bh - 8 * s;
       const r = 8 * s;
       ctx.beginPath();
       ctx.moveTo(bx + r, by);
@@ -2740,8 +2661,6 @@ async function recordViaCanvas({ mime, kind }){
   await Promise.all(slideUrls.map(async url => {
     slideImgMap.set(url, await loadImage(url));
   }));
-  const iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="${progressColor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${MARKER_ICON_PATHS[movingIconType] || ''}</svg>`;
-  const exportIconImg = await loadImage('data:image/svg+xml;charset=utf-8,' + encodeURIComponent(iconSvg));
 
   const fps = 30;
   const frameDt = 1000 / fps;
@@ -2756,7 +2675,6 @@ async function recordViaCanvas({ mime, kind }){
   const stream = manualCapture ? out.captureStream(0) : out.captureStream(fps);
   const track = stream.getVideoTracks()[0];
   const pushFrame = manualCapture ? () => track.requestFrame() : () => {};
-  const recStart = performance.now();
   const chunks = [];
   const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 8_000_000 });
   rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
@@ -2787,7 +2705,7 @@ async function recordViaCanvas({ mime, kind }){
     await waitMapFrame();
     const visited = new Set();
     markers.forEach((m, i) => { if (m._el.classList.contains('visited')) visited.add(i); });
-    drawExportFrame(ctx, out.width, out.height, markerImgs, exportIconImg, visited, slideImgMap, performance.now() - recStart);
+    drawExportFrame(ctx, out.width, out.height, markerImgs, visited, slideImgMap);
     pushFrame();
     let progress = 0;
     if (cineMode === 'intro') progress = (cineElapsed / introMs) * 8;
@@ -2803,7 +2721,7 @@ async function recordViaCanvas({ mime, kind }){
   showEndSummary();
   const visitedEnd = new Set(clusters.map((_, i) => i));
   for (let i = 0; i < Math.round(fps * 0.8); i++){
-    drawExportFrame(ctx, out.width, out.height, markerImgs, exportIconImg, visitedEnd, slideImgMap, performance.now() - recStart);
+    drawExportFrame(ctx, out.width, out.height, markerImgs, visitedEnd, slideImgMap);
     pushFrame();
     await new Promise(r => setTimeout(r, frameDt));
   }
@@ -2926,6 +2844,10 @@ function fmtDateShort(d){
 function fmtDateTime(d){
   if (!(d instanceof Date) || isNaN(d)) return '-';
   return `${fmtDateShort(d)} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+function fmtTimeShort(d){
+  if (!(d instanceof Date) || isNaN(d)) return '-';
+  return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
 }
 function dateKey(d){
   return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
