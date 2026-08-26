@@ -1225,10 +1225,6 @@ function renderPlaceList(){
     row.className = 'place';
     row.dataset.idx = i;
 
-    const timeEl = document.createElement('div');
-    timeEl.className = 'time';
-    timeEl.textContent = fmtTimeShort(c.startTime);
-
     const thumb = document.createElement('div');
     thumb.className = 'thumb';
     thumb.style.backgroundImage = `url(${c.rep.url})`;
@@ -1246,11 +1242,10 @@ function renderPlaceList(){
     nameEl.textContent = c.customName || c.placeName || `장소 ${i+1}`;
     const subEl = document.createElement('div');
     subEl.className = 'sub';
-    subEl.textContent = `사진 ${c.photos.length}장`;
+    subEl.textContent = `${fmtTimeShort(c.startTime)} · 사진 ${c.photos.length}장`;
     meta.appendChild(nameEl);
     meta.appendChild(subEl);
 
-    row.appendChild(timeEl);
     row.appendChild(thumb);
     row.appendChild(meta);
 
@@ -1860,6 +1855,9 @@ function setPlayingState(on){
 
 function playAnim(){
   if (clusters.length < 2 || isRecording) return;
+  // Reset map state before playing — closes any open place detail (which can be flown to
+  // a specific pin and cover most of the screen) so playback always starts from a clean map.
+  closeDetail();
   cancelPlayIntro();
   hideEndSummary();
   setPlayingState(true);
