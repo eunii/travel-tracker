@@ -340,9 +340,12 @@
   /* Play/record button — a single small floating circle, bottom-right just above
      #mobileTabBar (60px tall + safe-area). Tap toggles play/pause (icon swapped via
      .is-playing, see app.js setPlayingState); a long-press confirms and starts recording
-     (app.js). No scrubber/speed/replay bar anymore. */
+     (app.js). No scrubber/speed/replay bar anymore.
+     z-index sits below every modal-style overlay (#backdrop/.bottom-sheet/#detailpanel,
+     14-16) so whichever one is open always layers in front of it, but above the ordinary
+     map HUD (day-timeline/spotCard/markers) so it stays usable during normal playback. */
   #btnPlay{display:none;position:absolute;right:calc(16px + env(safe-area-inset-right));
-    bottom:calc(76px + env(safe-area-inset-bottom));z-index:18;
+    bottom:calc(76px + env(safe-area-inset-bottom));z-index:13;
     width:52px;height:52px;border-radius:50%;padding:0;border:none;
     background:var(--progress, var(--accent));color:#fff;
     box-shadow:0 6px 20px rgba(0,0,0,.25), 0 4px 14px color-mix(in srgb, var(--progress, var(--accent)) 45%, transparent);
