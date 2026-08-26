@@ -756,8 +756,12 @@ $('backdrop').addEventListener('click', closeSidebar);
 const isMobile = () => window.innerWidth <= 820;
 
 /* drag the whole sidebar open/closed: swipe its header to close, swipe in from the
-   left screen edge to open. Direction-locked so it never fights list scrolling. */
+   left screen edge to open. Direction-locked so it never fights list scrolling.
+   Mobile now shows #sidebar as a bottom sheet (opened via #mobileTabBar's "여정" tab)
+   instead of a left-edge drawer, so these horizontal-drag gestures no longer apply —
+   opening/closing there goes through the tab bar, the close button, or the backdrop. */
 (function setupSidebarDrag(){
+  if (isMobile()) return;
   const sidebar = $('sidebar'), backdrop = $('backdrop'), handle = sidebar.querySelector('h1');
   const EDGE = 24;
   let dragging = false, locked = null, startX = 0, startY = 0, baseX = 0, sidebarW = 0;
@@ -822,24 +826,6 @@ if (/iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream){
 }
 if (isMobile()) openSidebar(); // 처음엔 열어서 안내가 보이게
 
-/* ============ Top app bar: search + settings ============ */
-(function setupAppbar(){
-  const appbar = $('appbar');
-  const searchInput = $('appbarSearchInput');
-  if (!appbar || !searchInput) return;
-  $('btnSearch').addEventListener('click', () => {
-    appbar.classList.toggle('searching');
-    if (appbar.classList.contains('searching')){
-      searchInput.focus();
-      openSidebar();
-    } else {
-      searchInput.value = '';
-      setPlaceListFilter('');
-    }
-  });
-  searchInput.addEventListener('input', e => setPlaceListFilter(e.target.value));
-})();
-
 function openSettings(){
   const el = $('settingsOverlay');
   if (!el) return;
@@ -869,10 +855,16 @@ document.querySelectorAll('.map-mode-link').forEach(link => {
   });
 });
 
+/* Mobile bottom tab bar: 맵/여정/사진/설정. Desktop never shows #mobileTabBar (CSS),
+   so these listeners are harmless no-ops there. */
+if ($('tabMap')) $('tabMap').addEventListener('click', () => { closeSidebar(); closeSettings(); });
+if ($('tabJourney')) $('tabJourney').addEventListener('click', () => openSidebar());
+if ($('tabPhotos')) $('tabPhotos').addEventListener('click', () => $('folderInput').click());
+if ($('tabSettings')) $('tabSettings').addEventListener('click', () => openSettings());
+
 /* ============ File intake: folder picker ============ */
 $('btnFolder').addEventListener('click', () => $('folderInput').click());
 $('btnFiles').addEventListener('click', () => $('filesInput').click());
-if ($('btnUploadFab')) $('btnUploadFab').addEventListener('click', () => $('folderInput').click());
 $('folderInput').addEventListener('change', e => handleFileList([...e.target.files]));
 $('filesInput').addEventListener('change', e => handleFileList([...e.target.files]));
 
@@ -1299,20 +1291,11 @@ function renderMarkers(){
   });
 }
 
-let placeListFilter = '';
-function setPlaceListFilter(q){
-  placeListFilter = (q || '').trim();
-  renderPlaceList();
-}
 function renderPlaceList(){
   const list = $('placelist');
   list.innerHTML = '';
-  const q = placeListFilter.toLowerCase();
-  const rows = clusters
-    .map((c, i) => ({ c, i }))
-    .filter(({ c }) => !q || placeLabel(c).toLowerCase().includes(q));
   let lastDay = null;
-  rows.forEach(({ c, i }) => {
+  clusters.forEach((c, i) => {
     if (c.day !== lastDay){
       lastDay = c.day;
       const header = document.createElement('div');
@@ -2564,11 +2547,9 @@ async function recordAndDownload(){
   closeDetail();
   if (isMobile()) closeSidebar();
 
-  const btn = $('btnRecord');
   const playBtn = $('btnPlay');
-  btn.disabled = true;
   if (playBtn) playBtn.disabled = true;
-  btn.textContent = '준비…';
+  setRecordStatus('준비…');
 
   try {
     animElapsed = 0;
@@ -2584,8 +2565,8 @@ async function recordAndDownload(){
     markers.forEach(m => m._el.classList.remove('active', 'visited'));
     $('placelist').querySelectorAll('.place').forEach(el => el.classList.remove('active', 'visited'));
 
-    if (hasTabCapture) await recordViaTabCapture({ mime, kind, btn });
-    else await recordViaCanvas({ mime, kind, btn });
+    if (hasTabCapture) await recordViaTabCapture({ mime, kind });
+    else await recordViaCanvas({ mime, kind });
   } catch (err){
     console.error(err);
     if (err && err.message === 'capture ended'){
@@ -2595,9 +2576,7 @@ async function recordAndDownload(){
     }
   } finally {
     setRecordStatus('');
-    btn.disabled = false;
     if (playBtn) playBtn.disabled = false;
-    btn.innerHTML = '<span class="material-symbols-outlined">download</span> 저장';
     isRecording = false;
     setTimelineCompact(false);
     camFollow = (OVERVIEW_MODE ? false : true);
@@ -2606,7 +2585,7 @@ async function recordAndDownload(){
 }
 
 /** Chrome/Edge desktop path: capture the real tab, cropped to #mapwrap. Unchanged behavior. */
-async function recordViaTabCapture({ mime, kind, btn }){
+async function recordViaTabCapture({ mime, kind }){
   const mapwrap = $('mapwrap');
   setRecordStatus('이 탭 공유를 허용해 주세요…');
   mapwrap.classList.add('is-recording');
@@ -2677,7 +2656,6 @@ async function recordViaTabCapture({ mime, kind, btn }){
     let frames = 0;
     let done = false;
 
-    btn.textContent = '0%';
     setRecordStatus('녹화 중 0%');
 
     while (!done && frames++ < maxFrames){
@@ -2692,7 +2670,6 @@ async function recordViaTabCapture({ mime, kind, btn }){
         if (cineMode === 'outro') progress = 92 + Math.min(8, (cineElapsed / outroMs) * 8);
       } else progress = 100;
       const pct = Math.max(0, Math.min(100, Math.round(progress)));
-      btn.textContent = pct + '%';
       setRecordStatus('녹화 중 ' + pct + '%');
       await new Promise(r => setTimeout(r, Math.max(8, frameDt - 4)));
     }
@@ -2716,10 +2693,8 @@ async function recordViaTabCapture({ mime, kind, btn }){
 
     if (kind !== 'mp4'){
       setRecordStatus('MP4 변환 중…');
-      btn.textContent = '변환…';
       blob = await toMp4Blob(blob, pct => {
         setRecordStatus('MP4 변환 ' + pct + '%');
-        btn.textContent = pct + '%';
       });
     } else {
       blob = new Blob([blob], { type: 'video/mp4' });
@@ -2744,7 +2719,7 @@ async function recordViaTabCapture({ mime, kind, btn }){
  * pins + overlay cards onto an offscreen canvas every frame (drawExportFrame) and
  * record that canvas directly. No permission prompt needed.
  */
-async function recordViaCanvas({ mime, kind, btn }){
+async function recordViaCanvas({ mime, kind }){
   setRecordStatus('녹화 준비 중…');
   await waitExportFontsReady();
   await waitMapFrame();
@@ -2804,7 +2779,6 @@ async function recordViaCanvas({ mime, kind, btn }){
   let frames = 0;
   let done = false;
 
-  btn.textContent = '0%';
   setRecordStatus('녹화 중 0%');
 
   while (!done && frames++ < maxFrames){
@@ -2822,7 +2796,6 @@ async function recordViaCanvas({ mime, kind, btn }){
       if (cineMode === 'outro') progress = 92 + Math.min(8, (cineElapsed / outroMs) * 8);
     } else progress = 100;
     const pct = Math.max(0, Math.min(100, Math.round(progress)));
-    btn.textContent = pct + '%';
     setRecordStatus('녹화 중 ' + pct + '%');
     await new Promise(r => setTimeout(r, Math.max(8, frameDt - 4)));
   }
@@ -2843,10 +2816,8 @@ async function recordViaCanvas({ mime, kind, btn }){
 
   if (kind !== 'mp4'){
     setRecordStatus('MP4 변환 중…');
-    btn.textContent = '변환…';
     blob = await toMp4Blob(blob, pct => {
       setRecordStatus('MP4 변환 ' + pct + '%');
-      btn.textContent = pct + '%';
     });
   } else {
     blob = new Blob([blob], { type: 'video/mp4' });
@@ -2872,11 +2843,31 @@ async function recordViaCanvas({ mime, kind, btn }){
   card.addEventListener('pointerup', () => { startY = null; });
 })();
 
-$('btnPlay').addEventListener('click', () => {
-  if (isRecording) return;
-  if (isPlaying) pauseAnim();
-  else playAnim();
-});
+/* Play/record merged into one floating button: tap toggles play/pause, a long-press
+   (hold ~550ms) confirms and starts the same recording flow the old separate "저장"
+   button used to trigger. */
+(() => {
+  const playBtnEl = $('btnPlay');
+  const LONG_PRESS_MS = 550;
+  let pressTimer = null;
+  let longPressFired = false;
+  playBtnEl.addEventListener('pointerdown', () => {
+    longPressFired = false;
+    pressTimer = setTimeout(() => {
+      longPressFired = true;
+      if (isRecording || clusters.length < 2) return;
+      if (confirm('지금까지의 동선을 동영상으로 저장할까요?')) recordAndDownload();
+    }, LONG_PRESS_MS);
+  });
+  ['pointerup', 'pointerleave', 'pointercancel'].forEach(ev => {
+    playBtnEl.addEventListener(ev, () => clearTimeout(pressTimer));
+  });
+  playBtnEl.addEventListener('click', () => {
+    if (longPressFired || isRecording) return;
+    if (isPlaying) pauseAnim();
+    else playAnim();
+  });
+})();
 (() => {
   const handle = $('tlHandle');
   const timeline = $('timeline');
@@ -2892,7 +2883,6 @@ $('btnPlay').addEventListener('click', () => {
   });
   handle.addEventListener('pointerup', () => { startY = null; });
 })();
-$('btnRecord').addEventListener('click', () => { recordAndDownload(); });
 $('btnReplay').addEventListener('click', () => {
   if (isRecording) return;
   pauseAnim();

@@ -40,7 +40,7 @@
     </div>
 
     <div id="empty">
-      아직 불러온 사진이 없습니다.<br>왼쪽 위 버튼으로 폴더를 선택해 보세요.
+      아직 불러온 사진이 없습니다.<br>위 폴더 선택 버튼으로 시작해 보세요.
     </div>
     <div id="tripTitleTab" class="trip-title-row" style="display:none;">
       <div style="flex:1;min-width:0;">
@@ -58,18 +58,13 @@
     <div id="backdrop"></div>
 
     <div id="appbar" class="glass-panel">
-      <button id="btnSearch" class="material-symbols-outlined" title="장소 검색">search</button>
-      <div id="appbarSearchWrap">
-        <input type="text" id="appbarSearchInput" placeholder="장소 검색…" autocomplete="off">
-      </div>
+      <span class="appbar-spacer" aria-hidden="true"></span>
       <h1 id="appbarTitle">여행 트레커</h1>
       <button id="btnSettings" class="material-symbols-outlined" title="설정">tune</button>
     </div>
 
     <button id="navPrev" class="icon-btn-float" title="이전 장소" disabled><span class="material-symbols-outlined">chevron_left</span></button>
     <button id="navNext" class="icon-btn-float" title="다음 장소" disabled><span class="material-symbols-outlined">chevron_right</span></button>
-
-    <button id="btnUploadFab" class="material-symbols-outlined" title="사진 폴더 추가">add</button>
 
     <div id="dayTimeline" class="day-timeline" aria-hidden="true"></div>
 
@@ -121,8 +116,7 @@
     <div id="timeline">
       <button type="button" class="tl-handle" id="tlHandle" title="재생바 접기/펼치기" aria-label="재생바 접기/펼치기"></button>
       <div class="tl-body">
-        <button id="btnPlay" title="미리보기로 동선 재생"><span class="material-symbols-outlined tl-play-icon"></span><span class="tl-btn-label">미리보기</span></button>
-        <button id="btnRecord" title="동선 재생을 동영상으로 저장"><span class="material-symbols-outlined">download</span> 저장</button>
+        <button id="btnPlay" title="탭: 재생/일시정지 · 길게 누르면 동영상으로 저장"><span class="material-symbols-outlined tl-play-icon"></span><span class="tl-btn-label">미리보기</span></button>
         <div class="tl-mid">
           <input type="range" id="tlRange" min="0" max="1000" value="0">
           <div class="tl-labels">
@@ -142,6 +136,13 @@
     </div>
   </div>
 </div>
+
+<nav id="mobileTabBar">
+  <button type="button" class="mt-btn" id="tabMap" data-tab="map"><span class="material-symbols-outlined">map</span><span>맵</span></button>
+  <button type="button" class="mt-btn" id="tabJourney" data-tab="journey"><span class="material-symbols-outlined">route</span><span>여정</span></button>
+  <button type="button" class="mt-btn" id="tabPhotos" data-tab="photos"><span class="material-symbols-outlined">add_a_photo</span><span>사진</span></button>
+  <button type="button" class="mt-btn" id="tabSettings" data-tab="settings"><span class="material-symbols-outlined">tune</span><span>설정</span></button>
+</nav>
 
 <div id="settingsOverlay" aria-hidden="true">
   <div class="settings-head glass-panel">

@@ -141,21 +141,18 @@
   #mapwrap{flex:1;position:relative;}
   #map{position:absolute;inset:0;}
 
-  /* Top app bar: search, trip title, settings gear */
+  /* Top app bar: trip title + settings gear, with a spacer matching the gear button's
+     width on the left so the title stays visually centered. */
   #appbar{position:absolute;top:calc(12px + env(safe-area-inset-top));
     left:calc(12px + env(safe-area-inset-left));right:calc(12px + env(safe-area-inset-right));
     height:48px;border-radius:24px;z-index:20;display:flex;align-items:center;gap:4px;padding:0 6px;}
   #appbar button{width:36px;height:36px;border-radius:50%;flex-shrink:0;padding:0;
     background:none;color:var(--text);font-size:20px;display:flex;align-items:center;justify-content:center;}
   #appbar button:hover{background:var(--panel2);}
+  #appbar .appbar-spacer{width:36px;flex-shrink:0;}
   #appbarTitle{flex:1;min-width:0;margin:0;text-align:center;font-family:var(--font-display);
     font-size:15px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
     color:var(--text);}
-  #appbarSearchWrap{display:none;flex:1;min-width:0;}
-  #appbarSearchWrap input{width:100%;background:var(--panel2);border:1px solid var(--border);
-    border-radius:999px;color:var(--text);font-size:13px;padding:8px 14px;font-family:var(--font-body);}
-  #appbar.searching #appbarSearchWrap{display:block;}
-  #appbar.searching #appbarTitle{display:none;}
 
   /* Prev/next location floating buttons — only meaningful once a place is selected */
   #navPrev,#navNext{position:absolute;top:50%;transform:translateY(-50%);z-index:18;display:none;}
@@ -163,14 +160,6 @@
   #navNext{right:calc(12px + env(safe-area-inset-right));}
   #mapwrap:has(#detailpanel.show) #navPrev,
   #mapwrap:has(#detailpanel.show) #navNext{display:flex;}
-
-  /* Upload FAB */
-  #btnUploadFab{position:absolute;left:calc(16px + env(safe-area-inset-left));
-    bottom:calc(96px + env(safe-area-inset-bottom));width:56px;height:56px;border-radius:50%;
-    z-index:18;padding:0;font-size:26px;display:flex;align-items:center;justify-content:center;
-    background:var(--accent);color:#08131f;border:none;
-    box-shadow:0 6px 20px color-mix(in srgb, var(--accent) 45%, transparent);}
-  #btnUploadFab:hover{filter:brightness(1.08);}
 
   /* Settings overlay */
   #settingsOverlay{position:fixed;inset:0;z-index:60;background:rgba(6,10,20,.6);
@@ -403,9 +392,9 @@
   #timeline button{width:34px;height:34px;border-radius:50%;background:var(--panel2);color:var(--text);
     border:1px solid var(--border);overflow:hidden;white-space:nowrap;
     font-size:14px;flex-shrink:0;display:flex;align-items:center;justify-content:center;padding:0;}
-  #timeline #btnPlay,#timeline #btnRecord{width:auto;min-width:44px;height:44px;padding:0 16px;
-    border-radius:999px;font-size:13px;font-weight:700;gap:6px;}
-  #timeline #btnPlay{background:var(--accent);color:#08131f;border:none;
+  #timeline #btnPlay{width:auto;min-width:44px;height:44px;padding:0 16px;
+    border-radius:999px;font-size:13px;font-weight:700;gap:6px;
+    background:var(--accent);color:#08131f;border:none;
     box-shadow:0 4px 14px color-mix(in srgb, var(--accent) 45%, transparent);}
   #btnPlay .tl-play-icon{font-size:18px;}
   #btnPlay .tl-play-icon::before{content:"play_arrow";}
@@ -413,8 +402,8 @@
   #timeline.is-compact #btnPlay .tl-play-icon{font-size:22px;}
   #timeline.is-compact #btnPlay .tl-btn-label{display:none;}
   #timeline #btnPlay:hover{filter:brightness(1.08);}
-  #timeline #btnRecord:hover,#timeline #btnReplay:hover{border-color:var(--accent);}
-  #timeline #btnRecord:disabled,#timeline #btnPlay:disabled{opacity:.7;cursor:wait;}
+  #timeline #btnReplay:hover{border-color:var(--accent);}
+  #timeline #btnPlay:disabled{opacity:.7;cursor:wait;}
   #timeline .tl-mid{flex:1;display:flex;flex-direction:column;gap:2px;min-width:0;}
   #timeline input[type=range]{width:100%;accent-color:var(--accent);}
   #timeline .tl-labels{display:flex;justify-content:space-between;font-size:11px;color:var(--sub);
@@ -427,7 +416,6 @@
     border-radius:999px;pointer-events:none;}
   #timeline.is-compact .tl-handle{display:none;}
   #timeline.is-compact .tl-body{padding:0;gap:0;justify-content:center;pointer-events:none;}
-  #timeline.is-compact #btnRecord,
   #timeline.is-compact #tlSpeed,
   #timeline.is-compact #btnReplay,
   #timeline.is-compact .tl-labels,
@@ -445,7 +433,6 @@
   #mapwrap.is-recording #appbar,
   #mapwrap.is-recording #navPrev,
   #mapwrap.is-recording #navNext,
-  #mapwrap.is-recording #btnUploadFab,
   #mapwrap.is-recording .maplibregl-ctrl{display:none !important;}
   #mapwrap.is-recording #spotCard{
     bottom:calc(24px + env(safe-area-inset-bottom));}
@@ -509,27 +496,50 @@
   .ios-hint{display:none;margin:0 16px 12px;padding:8px 10px;background:rgba(255,193,7,.1);
     border:1px solid rgba(255,193,7,.35);border-radius:8px;font-size:11px;color:#ffd066;line-height:1.5;}
 
+  /* Bottom tab bar — mobile only. Desktop keeps the always-visible left sidebar and
+     reaches settings through the #appbar gear icon instead. */
+  #mobileTabBar{display:none;}
+
   @media (max-width: 820px){
-    #sidebarToggle{display:flex;}
-    #sidebar{position:absolute;top:0;left:0;bottom:0;z-index:15;width:86vw;max-width:340px;
-      transform:translateX(-100%);transition:transform .25s ease;box-shadow:0 0 30px rgba(0,0,0,.5);
-      padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom);
-      padding-left:env(safe-area-inset-left);}
-    #sidebar.open{transform:translateX(0);}
-    #sidebar h1{display:flex;justify-content:space-between;align-items:center;padding-left:56px;}
+    /* #sidebarToggle (hamburger) is retired on mobile — #mobileTabBar's "여정" button
+       opens the same #sidebar now. */
+    #sidebarToggle{display:none !important;}
+    /* #sidebar becomes a bottom sheet instead of a left-edge drawer, opened via
+       #mobileTabBar. */
+    #sidebar{position:absolute;left:0;right:0;bottom:0;top:auto;z-index:15;
+      width:auto;max-width:none;max-height:75vh;border-radius:20px 20px 0 0;
+      transform:translateY(100%);transition:transform .25s ease;box-shadow:0 -10px 40px rgba(0,0,0,.5);
+      padding-top:0;padding-left:0;
+      padding-bottom:calc(72px + env(safe-area-inset-bottom));}
+    #sidebar.open{transform:translateY(0);}
     #sidebarClose{display:block;}
     #detailpanel{left:calc(12px + env(safe-area-inset-left));right:calc(12px + env(safe-area-inset-right));
-      width:auto;top:auto;bottom:calc(88px + env(safe-area-inset-bottom));max-height:38vh;}
+      width:auto;top:auto;bottom:calc(156px + env(safe-area-inset-bottom));max-height:34vh;}
     /* Bug: this used to be set on #timeline (the outer column wrapper, which never has
        more than 2 items) instead of .tl-body (the actual button+scrubber row) — so on
        phones the row never wrapped, .tl-mid's flex-basis:100% below had nothing to wrap
        into, and the whole row shrank/overflowed instead (buttons squeezed to near 0px). */
     #timeline .tl-body{flex-wrap:wrap;padding:8px 10px;}
     #timeline .tl-mid{order:3;flex-basis:100%;}
+    /* clear #mobileTabBar sitting at the very bottom of the screen */
+    #timeline{bottom:calc(80px + env(safe-area-inset-bottom));}
     #lightbox .lb-nav{width:38px;height:38px;font-size:18px;}
-    /* leave room for the 42px hamburger button so the appbar doesn't sit under it */
-    #appbar{left:calc(66px + env(safe-area-inset-left));}
-    #btnUploadFab{bottom:calc(190px + env(safe-area-inset-bottom));}
+
+    #mobileTabBar{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:70;
+      align-items:stretch;justify-content:space-around;
+      background:color-mix(in srgb, var(--panel) 94%, transparent);
+      backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
+      border-top:1px solid var(--outline);
+      padding:6px 4px calc(6px + env(safe-area-inset-bottom));}
+    #mobileTabBar .mt-btn{flex:1;display:flex;flex-direction:column;align-items:center;
+      justify-content:center;gap:2px;background:none;border:none;color:var(--sub);
+      font-size:10px;font-weight:700;padding:6px 4px;border-radius:12px;}
+    #mobileTabBar .mt-btn .material-symbols-outlined{font-size:22px;}
+    #mobileTabBar .mt-btn.active{color:var(--progress, var(--accent));}
+    body:has(#sidebar.open) #mobileTabBar #tabJourney{color:var(--progress, var(--accent));}
+    body:has(#settingsOverlay.show) #mobileTabBar #tabSettings{color:var(--progress, var(--accent));}
+    body:not(:has(#sidebar.open)):not(:has(#settingsOverlay.show)) #mobileTabBar #tabMap{
+      color:var(--progress, var(--accent));}
   }
 
   /* ---------- Shared M3-style utility components ---------- */
