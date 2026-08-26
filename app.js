@@ -74,6 +74,16 @@ let cineStage = 0;
 let cineElapsed = 0;
 let spotCardState = null;  // DOM overlay state (photo slide while playing)
 
+// Popup stacking: whichever overlay (detail panel, spot card, trip intro, end summary)
+// was opened most recently gets bumped above the rest via inline z-index — starting
+// well above .photo-marker's highest z-index (6) so pins never cover an open popup.
+let popupZTop = 20;
+function bringPopupToFront(el){
+  if (!el) return;
+  popupZTop += 1;
+  el.style.zIndex = String(popupZTop);
+}
+
 const CAM_MIN_ZOOM = 3;
 const CAM_MAX_ZOOM = 15;
 const CAM_ZOOM_OUT_RATE = 1.6;
@@ -482,6 +492,7 @@ function showSpotCardPhoto(cluster, clusterIdx, dwellT){
     photoUrl: photo.url, slideIndex: slideIdx, slideTotal: photos.length
   };
 
+  if (!el.classList.contains('show')) bringPopupToFront(el);
   el.classList.add('show', 'has-photo');
   el.setAttribute('aria-hidden', 'false');
   countEl.textContent = (slideIdx + 1) + ' / ' + photos.length;
@@ -622,6 +633,7 @@ function showTripIntro(){
   $('tiTitle').textContent = getTripTitle();
   $('tiDays').textContent = stay.n > 1 ? stay.ko + ' · ' + stay.en : stay.en;
   $('tiRange').textContent = tripDateRangeLabel();
+  bringPopupToFront(el);
   el.classList.add('show');
   el.setAttribute('aria-hidden', 'false');
 }
@@ -644,6 +656,7 @@ function showEndSummary(){
   $('esDays').textContent = tripDayLabel();
   const km = tripStraightKm();
   $('esKm').textContent = km < 10 ? km.toFixed(1) : String(Math.round(km));
+  bringPopupToFront(el);
   el.classList.add('show');
   el.setAttribute('aria-hidden', 'false');
   if (endSummaryTimer) clearTimeout(endSummaryTimer);
@@ -1381,6 +1394,7 @@ function selectCluster(i, fly){
     div.appendChild(del);
     grid.appendChild(div);
   });
+  bringPopupToFront($('detailpanel'));
   $('detailpanel').classList.add('show');
   if (isMobile()) closeSidebar();
 }
@@ -1935,7 +1949,10 @@ function pauseAnim(){
   syncMovingMarkerPlaying();
   if (!isRecording) setTimelineCompact(false);
   const playBtn = $('btnPlay');
-  if (playBtn) playBtn.textContent = '▶ 미리보기';
+  // While recording, the timeline stays compact (38px circular button) even though
+  // isRecording short-circuits the compact-off above — keep the label icon-only so the
+  // long "▶ 미리보기" text doesn't overflow the circle.
+  if (playBtn) playBtn.textContent = isRecording ? '⏸' : '▶ 미리보기';
 }
 
 function stopAnim(){
@@ -2005,6 +2022,31 @@ function loadImage(url){
   });
 }
 
+// The canvas export path (recordViaCanvas, iOS fallback) redraws all overlay text
+// itself instead of capturing the DOM, so it must explicitly match the app's
+// --font-body (Pretendard) or the saved video's text renders in the platform's
+// generic sans-serif instead of what the preview shows.
+let exportFontStackCache = null;
+function exportFontStack(){
+  if (!exportFontStackCache){
+    const v = getComputedStyle(document.documentElement).getPropertyValue('--font-body').trim();
+    exportFontStackCache = v || 'sans-serif';
+  }
+  return exportFontStackCache;
+}
+
+/** Ensures Pretendard is actually loaded before the canvas export draws any text
+ * (canvas silently falls back to the platform default otherwise, even with the
+ * right font-family string) — awaited once before the recordViaCanvas frame loop. */
+async function waitExportFontsReady(){
+  const stack = exportFontStack();
+  const weights = ['400', '600', '700'];
+  try {
+    await Promise.all(weights.map(w => document.fonts.load(`${w} 16px ${stack}`)));
+    await document.fonts.ready;
+  } catch (e) { /* best effort — fall back to whatever is available */ }
+}
+
 /**
  * Approximates the .icon-badge[data-icon] CSS @keyframes (style.css mm-fly/mm-hop/etc)
  * for the canvas export path, which draws a static icon image instead of an animated
@@ -2070,7 +2112,7 @@ function drawExportFrame(ctx, outW, outH, markerImgs, exportIconImg, visitedSet,
       ctx.fillStyle = visitedSet.has(i) ? progressColor : pathColor;
       ctx.fill();
       ctx.fillStyle = visitedSet.has(i) ? '#08131f' : '#fff';
-      ctx.font = `bold ${11 * Math.min(sx, sy)}px sans-serif`;
+      ctx.font = `bold ${11 * Math.min(sx, sy)}px ${exportFontStack()}`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(String(c.photos.length), x + r * 0.7, y + r * 0.7);
@@ -2105,7 +2147,7 @@ function drawExportFrame(ctx, outW, outH, markerImgs, exportIconImg, visitedSet,
     }
     if (arrivalBubbleLabel && arrivalMode === 'move' && !spotCardState){
       const fontPx = Math.max(11, 12 * s);
-      ctx.font = `600 ${fontPx}px sans-serif`;
+      ctx.font = `600 ${fontPx}px ${exportFontStack()}`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       const padX = 10 * s, padY = 6 * s;
@@ -2148,9 +2190,9 @@ function drawExportFrame(ctx, outW, outH, markerImgs, exportIconImg, visitedSet,
     const padY = 8 * s, padL = 8 * s, padR = 16 * s, gap = 10 * s;
     const name = dayTimelineState.name || '';
     const order = 'DAY ' + dayTimelineState.day;
-    ctx.font = `600 ${Math.max(13, 15 * s)}px sans-serif`;
+    ctx.font = `600 ${Math.max(13, 15 * s)}px ${exportFontStack()}`;
     const nameW = ctx.measureText(name).width;
-    ctx.font = `700 ${Math.max(10, 10.5 * s)}px sans-serif`;
+    ctx.font = `700 ${Math.max(10, 10.5 * s)}px ${exportFontStack()}`;
     const orderW = ctx.measureText(order).width;
     const textW = Math.max(orderW, nameW);
     const cardH = Math.max(badgeD + padY * 2, 44 * s);
@@ -2178,7 +2220,7 @@ function drawExportFrame(ctx, outW, outH, markerImgs, exportIconImg, visitedSet,
     ctx.arc(badgeCx, badgeCy, badgeD / 2, 0, Math.PI * 2);
     ctx.fillStyle = 'rgba(46,178,124,0.25)';
     ctx.fill();
-    ctx.font = `${Math.max(12, 14 * s)}px sans-serif`;
+    ctx.font = `${Math.max(12, 14 * s)}px ${exportFontStack()}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText('📍', badgeCx, badgeCy + 0.5 * s);
@@ -2187,10 +2229,10 @@ function drawExportFrame(ctx, outW, outH, markerImgs, exportIconImg, visitedSet,
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
     ctx.fillStyle = '#2eb27c';
-    ctx.font = `700 ${Math.max(10, 10.5 * s)}px sans-serif`;
+    ctx.font = `700 ${Math.max(10, 10.5 * s)}px ${exportFontStack()}`;
     ctx.fillText(order, textX, by + cardH / 2 - 13 * s, cardW - (textX - bx) - padR);
     ctx.fillStyle = '#e8ebf3';
-    ctx.font = `600 ${Math.max(13, 15 * s)}px sans-serif`;
+    ctx.font = `600 ${Math.max(13, 15 * s)}px ${exportFontStack()}`;
     ctx.fillText(name, textX, by + cardH / 2 - 1 * s, cardW - (textX - bx) - padR);
     ctx.restore();
   }
@@ -2215,15 +2257,15 @@ function drawExportFrame(ctx, outW, outH, markerImgs, exportIconImg, visitedSet,
     ctx.fill();
     const stay = tripStayLabel();
     ctx.fillStyle = '#1a1a1a';
-    ctx.font = `700 ${Math.max(18, 22 * s)}px sans-serif`;
+    ctx.font = `700 ${Math.max(18, 22 * s)}px ${exportFontStack()}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText(getTripTitle(), outW / 2, by + 38 * s, cardW - 28 * s);
     ctx.fillStyle = '#5a6b5e';
-    ctx.font = `700 ${Math.max(12, 14 * s)}px sans-serif`;
+    ctx.font = `700 ${Math.max(12, 14 * s)}px ${exportFontStack()}`;
     ctx.fillText(stay.n > 1 ? stay.ko + ' · ' + stay.en : stay.en, outW / 2, by + 68 * s);
     ctx.fillStyle = '#667085';
-    ctx.font = `${Math.max(11, 12 * s)}px sans-serif`;
+    ctx.font = `${Math.max(11, 12 * s)}px ${exportFontStack()}`;
     ctx.fillText(tripDateRangeLabel(), outW / 2, by + 92 * s);
   }
 
@@ -2268,7 +2310,7 @@ function drawExportFrame(ctx, outW, outH, markerImgs, exportIconImg, visitedSet,
     ctx.restore();
     if (spotCardState.slideTotal != null){
       ctx.fillStyle = '#667085';
-      ctx.font = `${Math.max(10, 11 * s)}px sans-serif`;
+      ctx.font = `${Math.max(10, 11 * s)}px ${exportFontStack()}`;
       ctx.textAlign = 'right';
       ctx.textBaseline = 'top';
       ctx.fillText(
@@ -2309,16 +2351,16 @@ function drawExportFrame(ctx, outW, outH, markerImgs, exportIconImg, visitedSet,
     cols.forEach((c, i) => {
       const cx = bx + colW * (i + 0.5);
       ctx.fillStyle = '#1a1a1a';
-      ctx.font = `700 ${Math.max(14, 18 * s)}px sans-serif`;
+      ctx.font = `700 ${Math.max(14, 18 * s)}px ${exportFontStack()}`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(c[0], cx, by + 32 * s);
       ctx.fillStyle = '#667085';
-      ctx.font = `${Math.max(9, 10 * s)}px sans-serif`;
+      ctx.font = `${Math.max(9, 10 * s)}px ${exportFontStack()}`;
       ctx.fillText(c[1], cx, by + 52 * s);
     });
     ctx.fillStyle = '#667085';
-    ctx.font = `${Math.max(10, 11 * s)}px sans-serif`;
+    ctx.font = `${Math.max(10, 11 * s)}px ${exportFontStack()}`;
     ctx.fillText('사진 촬영 위치 간 직선거리 기준', outW / 2, by + cardH - 18 * s);
   }
 }
@@ -2627,6 +2669,7 @@ async function recordViaTabCapture({ mime, kind, btn }){
  */
 async function recordViaCanvas({ mime, kind, btn }){
   setRecordStatus('녹화 준비 중…');
+  await waitExportFontsReady();
   await waitMapFrame();
   await waitMapFrame();
 

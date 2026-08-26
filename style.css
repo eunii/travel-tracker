@@ -136,7 +136,8 @@
   #detailpanel{position:absolute;top:calc(12px + env(safe-area-inset-top));
     right:calc(12px + env(safe-area-inset-right));width:300px;max-height:calc(100% - 100px);
     background:rgba(26,30,41,.96);backdrop-filter:blur(6px);border:1px solid var(--border);
-    border-radius:20px;overflow:hidden;display:none;flex-direction:column;box-shadow:0 8px 30px rgba(0,0,0,.4);}
+    border-radius:20px;overflow:hidden;display:none;flex-direction:column;box-shadow:0 8px 30px rgba(0,0,0,.4);
+    z-index:15;}
   #detailpanel.show{display:flex;}
   #detailpanel .dp-head{padding:12px 14px;border-bottom:1px solid var(--border);display:flex;
     justify-content:space-between;align-items:flex-start;gap:8px;}
@@ -238,7 +239,7 @@
   .dt-card.show{opacity:1;transform:translateY(0);}
 
   .dt-header{display:flex;align-items:baseline;justify-content:center;gap:8px;margin-bottom:6px;}
-  .dt-header .dt-day{font-size:12.5px;font-weight:800;color:var(--accent);letter-spacing:.02em;}
+  .dt-header .dt-day{font-size:12.5px;font-weight:800;color:var(--progress, var(--good));letter-spacing:.02em;}
   .dt-header .dt-date{font-size:10.5px;color:#9aa0a8;font-variant-numeric:tabular-nums;}
 
   .dt-track{position:relative;display:flex;align-items:flex-start;justify-content:center;
@@ -248,24 +249,24 @@
   .dt-stop{flex:0 0 auto;min-width:48px;max-width:64px;display:flex;flex-direction:column;
     align-items:center;text-align:center;}
   .dt-dot-wrap{height:15px;display:flex;align-items:center;justify-content:center;}
-  .dt-dot{width:8px;height:8px;border-radius:50%;background:#fff;border:2px solid #d5d8dc;
+  .dt-dot{width:8px;height:8px;border-radius:50%;background:#fff;border:2px solid var(--path, var(--sub));
     transition:all .2s ease;}
-  .dt-stop-name{margin-top:3px;font-size:10px;color:#b8bcc2;font-weight:500;white-space:nowrap;
+  .dt-stop-name{margin-top:3px;font-size:10px;color:var(--path, var(--sub));font-weight:500;white-space:nowrap;
     overflow:hidden;text-overflow:ellipsis;max-width:100%;}
 
-  .dt-stop.done .dt-dot{background:var(--accent);border-color:var(--accent);}
+  .dt-stop.done .dt-dot{background:var(--progress, var(--good));border-color:var(--progress, var(--good));}
   .dt-stop.done .dt-stop-name{color:#1a1a1a;font-weight:700;}
 
   .dt-stop.current{max-width:none;}
-  .dt-stop.current .dt-dot{width:12px;height:12px;background:var(--accent);border:2px solid var(--accent);}
-  .dt-stop.current .dt-stop-name{color:var(--accent);font-weight:800;font-size:10.5px;
+  .dt-stop.current .dt-dot{width:12px;height:12px;background:var(--progress, var(--good));border:2px solid var(--progress, var(--good));}
+  .dt-stop.current .dt-stop-name{color:var(--progress, var(--good));font-weight:800;font-size:10.5px;
     white-space:nowrap;overflow:visible;text-overflow:clip;max-width:none;}
 
   .dt-connector{flex:1 1 20px;min-width:16px;height:15px;position:relative;}
   .dt-connector::before{content:"";position:absolute;left:0;right:0;top:50%;
-    transform:translateY(-50%);height:2px;border-radius:1px;background:#e3e5e8;}
+    transform:translateY(-50%);height:2px;border-radius:1px;background:color-mix(in srgb, var(--path, var(--sub)) 35%, transparent);}
   .dt-connector-fill{position:absolute;left:0;top:50%;transform:translateY(-50%);
-    height:2px;border-radius:1px;width:0%;background:var(--accent);transition:width .15s linear;}
+    height:2px;border-radius:1px;width:0%;background:var(--progress, var(--good));transition:width .15s linear;}
 
   #tripIntro{position:absolute;inset:0;z-index:14;display:flex;align-items:center;justify-content:center;
     padding:24px;pointer-events:none;opacity:0;visibility:hidden;
@@ -326,7 +327,7 @@
     background:var(--panel);
     backdrop-filter:blur(6px);border:1px solid var(--border);border-radius:12px;
     display:none;flex-direction:column;box-shadow:0 10px 28px rgba(0,0,0,.4);
-    max-height:200px;overflow:hidden;
+    max-height:200px;overflow:hidden;z-index:7;
     transition:max-height .3s cubic-bezier(.4,0,.2,1);}
   #timeline.show{display:flex;}
   #timeline .tl-handle{width:100%;height:24px;margin:0;border-radius:0;background:transparent;
@@ -340,7 +341,7 @@
   #timeline .tl-body{display:flex;align-items:center;gap:10px;padding:0 16px 10px 8px;
     transition:padding .25s ease, gap .25s ease;}
   #timeline button{width:34px;height:34px;border-radius:50%;background:var(--panel2);color:var(--text);
-    border:1px solid var(--border);
+    border:1px solid var(--border);overflow:hidden;white-space:nowrap;
     font-size:14px;flex-shrink:0;display:flex;align-items:center;justify-content:center;padding:0;}
   #timeline #btnPlay,#timeline #btnRecord{width:auto;min-width:44px;height:44px;padding:0 16px;
     border-radius:999px;font-size:13px;font-weight:700;gap:6px;}
