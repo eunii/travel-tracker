@@ -67,9 +67,6 @@
       <button id="btnThemeToggle" class="material-symbols-outlined" title="지도 밝기 전환">dark_mode</button>
     </div>
 
-    <button id="navPrev" class="icon-btn-float" title="이전 장소" disabled><span class="material-symbols-outlined">chevron_left</span></button>
-    <button id="navNext" class="icon-btn-float" title="다음 장소" disabled><span class="material-symbols-outlined">chevron_right</span></button>
-
     <div id="dayTimeline" class="day-timeline" aria-hidden="true"></div>
 
     <div id="tripIntro" aria-hidden="true">
@@ -100,20 +97,30 @@
 
     <div id="detailpanel">
       <div class="dp-head">
-        <div>
-          <div class="dp-title-row">
-            <span class="dp-day-badge chip" id="dpDayBadge">DAY 1</span>
-            <div class="dp-title" id="dpTitle">장소</div>
-            <button class="dp-edit material-symbols-outlined" id="dpEdit" title="이름 바꾸기">edit</button>
-          </div>
-          <div class="dp-sub" id="dpSub"></div>
+        <div class="dp-title-row">
+          <span class="dp-day-badge chip" id="dpDayBadge">DAY 1</span>
+          <div class="dp-title" id="dpTitle">장소</div>
+          <button class="dp-edit material-symbols-outlined" id="dpEdit" title="이름 바꾸기">edit</button>
         </div>
-        <div class="dp-head-actions">
-          <button class="dp-del material-symbols-outlined" id="dpDel" title="이 장소 삭제">delete</button>
-          <button class="dp-close material-symbols-outlined" id="dpClose">close</button>
-        </div>
+        <button class="dp-close material-symbols-outlined" id="dpClose">close</button>
       </div>
+      <div class="dp-sub" id="dpSub"></div>
+      <button class="dp-del-btn" id="dpDel" type="button" title="이 장소 삭제">
+        <span class="material-symbols-outlined">delete</span> 장소 삭제
+      </button>
+      <div class="dp-gallery-head" id="dpGalleryHead">사진 0장</div>
       <div class="dp-grid" id="dpGrid"></div>
+      <button class="dp-add-photos" id="dpAddPhotos" type="button">
+        <span class="material-symbols-outlined">add_photo_alternate</span> 사진 추가
+      </button>
+      <div class="dp-nav-row">
+        <button id="navPrev" class="dp-nav" title="이전 장소" disabled>
+          <span class="material-symbols-outlined">chevron_left</span> 이전
+        </button>
+        <button id="navNext" class="dp-nav" title="다음 장소" disabled>
+          다음 <span class="material-symbols-outlined">chevron_right</span>
+        </button>
+      </div>
     </div>
 
 

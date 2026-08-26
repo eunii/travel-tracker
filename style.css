@@ -139,14 +139,6 @@
     font-size:14px;font-weight:800;letter-spacing:.06em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
     color:var(--progress, var(--accent));}
 
-  /* Prev/next location floating buttons — only meaningful once a place is selected */
-  /* bottom-anchored (not top:50%) so #navNext never collides with the right-edge
-     #btnPlay circle, which sits vertically centered on the same right edge. */
-  #navPrev,#navNext{position:absolute;bottom:110px;z-index:18;display:none;}
-  #navPrev{left:calc(12px + env(safe-area-inset-left));}
-  #navNext{right:calc(12px + env(safe-area-inset-right));}
-  #mapwrap:has(#detailpanel.show) #navPrev,
-  #mapwrap:has(#detailpanel.show) #navNext{display:flex;}
 
   /* Settings sheet — shares .bottom-sheet with #sidebar/#sheetPhotos so all three
      popups look and behave the same way (see openSettings/closeSettings in app.js,
@@ -157,39 +149,59 @@
   .settings-card .ctrl-row{border:none;}
   .mode-picker .map-mode-btn{text-decoration:none;display:block;width:100%;}
 
-  #detailpanel{position:absolute;top:calc(12px + env(safe-area-inset-top));
-    right:calc(12px + env(safe-area-inset-right));width:300px;max-height:calc(100% - 100px);
-    background:color-mix(in srgb, var(--panel) 92%, transparent);
-    backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid var(--outline);
-    border-radius:20px;overflow:hidden;display:none;flex-direction:column;box-shadow:0 8px 30px rgba(0,0,0,.4);
-    z-index:15;}
-  #detailpanel.show{display:flex;}
-  #detailpanel .dp-head{padding:12px 14px;border-bottom:1px solid var(--border);display:flex;
+  /* #detailpanel — a bottom sheet like #sidebar/#sheetPhotos/#settingsOverlay (same slide-up
+     card, same centered max-width), just taller (~58vh) to fit an equal-size photo gallery.
+     Opened by either a map-pin click or a 여행 list row click (see selectCluster in app.js). */
+  #detailpanel{position:fixed;left:0;right:0;bottom:0;top:auto;z-index:16;
+    width:auto;max-width:480px;margin:0 auto;max-height:58vh;
+    background:var(--panel);border-radius:20px 20px 0 0;overflow-y:auto;overflow-x:hidden;
+    -webkit-overflow-scrolling:touch;display:none;flex-direction:column;
+    box-shadow:0 -10px 40px rgba(0,0,0,.2);
+    transform:translateY(100%);transition:transform .25s ease;
+    padding-bottom:calc(72px + env(safe-area-inset-bottom));}
+  #detailpanel.show{display:flex;transform:translateY(0);}
+  #detailpanel .dp-head{padding:18px 16px 4px;display:flex;
     justify-content:space-between;align-items:flex-start;gap:8px;}
   #detailpanel .dp-title-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
   #detailpanel .dp-day-badge{font-size:9px;padding:3px 9px;order:-1;flex-basis:100%;width:fit-content;}
-  #detailpanel .dp-title{font-family:var(--font-display);font-size:16px;font-weight:600;}
-  #detailpanel .dp-title-input{font-family:var(--font-display);font-size:16px;font-weight:600;
-    background:var(--panel2);border:1px solid var(--progress, var(--accent));border-radius:6px;color:var(--text);
-    padding:2px 6px;width:170px;}
-  #detailpanel .dp-edit,#detailpanel .dp-del{background:none;border:none;color:var(--sub);font-size:15px;padding:2px 4px;
+  #detailpanel .dp-title{font-family:var(--font-display);font-size:19px;font-weight:700;}
+  #detailpanel .dp-edit{background:none;border:none;color:var(--sub);font-size:16px;padding:2px 4px;
     opacity:.7;}
-  #detailpanel .dp-edit:hover,#detailpanel .dp-del:hover{opacity:1;}
-  #detailpanel .dp-del:hover{color:var(--accent2);}
-  #detailpanel .dp-sub{font-size:11px;color:var(--sub);margin-top:2px;font-variant-numeric:tabular-nums;}
-  #detailpanel .dp-close{background:none;border:none;color:var(--sub);font-size:18px;padding:2px 6px;}
-  #detailpanel .dp-head-actions{display:flex;align-items:center;gap:2px;flex-shrink:0;}
-  #detailpanel .dp-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;padding:10px;
-    overflow-y:auto;grid-auto-rows:1fr;}
+  #detailpanel .dp-edit:hover{opacity:1;}
+  #detailpanel .dp-sub{font-size:11px;color:var(--sub);margin-top:2px;font-variant-numeric:tabular-nums;
+    padding:0 16px;}
+  #detailpanel .dp-close{background:none;border:none;color:var(--sub);font-size:18px;padding:2px 6px;
+    flex-shrink:0;}
+
+  #detailpanel .dp-del-btn{margin:14px 16px 0;padding:12px;border-radius:12px;border:none;
+    background:color-mix(in srgb, var(--accent2) 12%, transparent);color:var(--accent2);
+    font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px;}
+  #detailpanel .dp-del-btn:hover{background:color-mix(in srgb, var(--accent2) 20%, transparent);}
+  #detailpanel .dp-del-btn .material-symbols-outlined{font-size:16px;}
+
+  #detailpanel .dp-gallery-head{padding:16px 16px 8px;font-size:12px;font-weight:700;color:var(--sub);
+    text-transform:uppercase;letter-spacing:.04em;}
+
+  #detailpanel .dp-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;padding:0 16px;}
   #detailpanel .dp-grid .ph{aspect-ratio:1;border-radius:12px;background-size:cover;background-position:center;
     background-color:var(--panel2);cursor:pointer;position:relative;}
-  #detailpanel .dp-grid .ph.rep{grid-row:span 2;aspect-ratio:auto;}
-  #detailpanel .dp-grid .ph.rep::after{content:"대표";position:absolute;top:6px;left:6px;
-    background:var(--accent);color:#fff;font-size:9px;font-weight:700;padding:2px 6px;border-radius:6px;}
   #detailpanel .dp-grid .ph-del{position:absolute;top:6px;right:6px;width:22px;height:22px;
     border-radius:50%;background:rgba(0,0,0,.6);border:none;color:#fff;font-size:13px;line-height:1;
     display:flex;align-items:center;justify-content:center;padding:0;}
   #detailpanel .dp-grid .ph-del:hover{background:var(--accent2);}
+
+  #detailpanel .dp-add-photos{margin:12px 16px 0;padding:10px;border-radius:12px;
+    border:1.5px dashed var(--border);background:none;color:var(--sub);font-size:13px;font-weight:600;
+    display:flex;align-items:center;justify-content:center;gap:6px;}
+  #detailpanel .dp-add-photos:hover{border-color:var(--progress, var(--accent));
+    color:var(--progress, var(--accent));}
+
+  #detailpanel .dp-nav-row{display:flex;gap:8px;padding:16px;margin-top:4px;}
+  #detailpanel .dp-nav{flex:1;padding:10px;border-radius:12px;background:var(--panel2);
+    border:1px solid var(--border);color:var(--text);font-size:13px;font-weight:700;
+    display:flex;align-items:center;justify-content:center;gap:4px;}
+  #detailpanel .dp-nav:hover{border-color:var(--progress, var(--accent));}
+  #detailpanel .dp-nav:disabled{opacity:.35;pointer-events:none;}
 
   /* photo markers on map
      IMPORTANT: never put CSS `transform` / `transition:transform` on the Marker root.
@@ -341,8 +353,6 @@
   #mapwrap.is-recording #detailpanel,
   #mapwrap.is-recording #backdrop,
   #mapwrap.is-recording #appbar,
-  #mapwrap.is-recording #navPrev,
-  #mapwrap.is-recording #navNext,
   #mapwrap.is-recording .maplibregl-ctrl{display:none !important;}
   #mapwrap.is-recording #spotCard{
     bottom:calc(24px + env(safe-area-inset-bottom));}
@@ -424,8 +434,6 @@
 
   /* ---------- Narrow screens ---------- */
   @media (max-width: 820px){
-    #detailpanel{left:calc(12px + env(safe-area-inset-left));right:calc(12px + env(safe-area-inset-right));
-      width:auto;top:auto;bottom:calc(156px + env(safe-area-inset-bottom));max-height:34vh;}
     #lightbox .lb-nav{width:38px;height:38px;font-size:18px;}
   }
 
@@ -440,14 +448,6 @@
   .chip.active{background:var(--progress, var(--accent));border-color:transparent;color:#fff;}
   .chip-group{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;}
   .chip-group::-webkit-scrollbar{display:none;}
-
-  .icon-btn-float{width:44px;height:44px;border-radius:14px;flex-shrink:0;padding:0;
-    display:flex;align-items:center;justify-content:center;color:var(--text);
-    background:color-mix(in srgb, var(--panel) 90%, transparent);
-    backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
-    border:1px solid var(--outline);box-shadow:0 4px 16px rgba(0,0,0,.35);}
-  .icon-btn-float:hover{border-color:var(--progress, var(--accent));}
-  .icon-btn-float:disabled{opacity:.4;pointer-events:none;}
 
   .stat-tile{display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 6px;
     background:var(--panel2);border:1px solid var(--border);border-radius:14px;text-align:center;}

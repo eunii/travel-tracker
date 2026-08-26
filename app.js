@@ -15,8 +15,8 @@ let markers = [];
 let activeCluster = null;
 let map = null;
 let movingMarker = null;
-let pathColor = '#8b93a7';       // full / upcoming route (dashed)
-let progressColor = '#3ecf8e';   // traveled line + marker icon
+let pathColor = '#94a3b8';       // full / upcoming route (dashed) — overwritten by the
+let progressColor = '#0ea5e9';   // traveled line + marker icon — active theme preset on load
 let segDurations = [];     // ms per travel hop at speed=1
 let segDwells = [];        // ms per place dwell (arrival hold)
 let segKm = [];            // hop distance km
@@ -87,6 +87,7 @@ const TIGHT_HOP_DELTA = 0.35;
 const LS_ARRIVAL_MODE = 'travel-tracker-arrival-mode';
 const LS_PHOTO_FAN_LEGACY = 'travel-tracker-photo-fan';
 const LS_TRIP_TITLE = 'travel-tracker-trip-title';
+const LS_THEME_PRESET = 'travel-tracker-theme-preset';
 
 let tripTitleCustom = null;
 try {
@@ -1038,14 +1039,14 @@ function geocodeClusters(){
 function updateClusterLabel(idx){
   const c = clusters[idx];
   if (!c) return;
-  document.querySelectorAll(`#placelist .place[data-idx="${idx}"] .name`).forEach(el => { el.textContent = placeLabel(c); });
+  document.querySelectorAll(`#placelist .place[data-idx="${idx}"] .name`).forEach(el => { el.textContent = placeTitle(c); });
   const stop = dayTimelineStops.find(s => s.cluster === c);
   if (stop){
     const nameEl = stop.el.querySelector('.dt-stop-name');
     if (nameEl) nameEl.textContent = placeTitle(c);
   }
   if (activeCluster === idx){
-    $('dpTitle').textContent = placeLabel(c);
+    $('dpTitle').textContent = placeTitle(c);
   }
   if (idx === 0) refreshTripTitleUI();
 }
@@ -1055,53 +1056,51 @@ function updateClusterLabel(idx){
 const SCALE_PRESETS = { day: 150, city: 3000, country: 30000 };
 let travelScale = 'day';
 
-/* ============ Moving marker color ============ */
-const COLOR_SWATCHES = [
-  { hex:'#8b93a7', label:'그레이' },
-  { hex:'#3ecf8e', label:'민트' },
-  { hex:'#4d9fff', label:'블루' },
-  { hex:'#ff6b6b', label:'코랄' },
-  { hex:'#f59e0b', label:'앰버' },
-  { hex:'#a78bfa', label:'바이올렛' },
-  { hex:'#ec4899', label:'핑크' },
-  { hex:'#14b8a6', label:'틸' }
+/* ============ Theme presets ============ */
+/* A short curated list of matched (path, progress) color pairs, instead of two
+   independent free-form pickers — mixing any two colors too easily looked bad, so we
+   just offer a handful of pre-matched combos to choose from. */
+const THEME_PRESETS = [
+  { id:'glacier', label:'Glacier', path:'#94a3b8', progress:'#0ea5e9' },
+  { id:'kinetic-path', label:'Kinetic Path', path:'#f97316', progress:'#2563eb' },
+  { id:'neon-tokyo', label:'Neon Tokyo', path:'#ec4899', progress:'#eab308' },
+  { id:'electric-nightscape', label:'Electric Nightscape', path:'#7c3aed', progress:'#e11d48' }
 ];
+let themePresetId = THEME_PRESETS[0].id;
 
-function buildColorPicker(containerId, role, current){
-  const box = $(containerId);
+function buildThemePresetList(){
+  const box = $('themePresetList');
+  if (!box) return;
   box.innerHTML = '';
-  COLOR_SWATCHES.forEach(s => {
+  THEME_PRESETS.forEach(p => {
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = 'color-btn' + (s.hex.toLowerCase() === current.toLowerCase() ? ' active' : '');
-    btn.dataset.color = s.hex;
-    btn.title = s.label;
-    btn.style.background = s.hex;
-    btn.addEventListener('click', () => setThemeColor(role, s.hex));
+    btn.className = 'theme-preset-row' + (p.id === themePresetId ? ' active' : '');
+    btn.dataset.preset = p.id;
+    const swatch = document.createElement('span');
+    swatch.className = 'theme-preset-swatch';
+    swatch.style.setProperty('--sw-path', p.path);
+    swatch.style.setProperty('--sw-progress', p.progress);
+    const label = document.createElement('span');
+    label.textContent = p.label;
+    btn.appendChild(swatch);
+    btn.appendChild(label);
+    btn.addEventListener('click', () => selectThemePreset(p.id));
     box.appendChild(btn);
   });
-  const custom = document.createElement('input');
-  custom.type = 'color';
-  custom.className = 'color-custom';
-  custom.id = role === 'path' ? 'pathColorCustom' : 'progressColorCustom';
-  custom.value = current;
-  custom.title = '직접 선택';
-  custom.addEventListener('input', e => setThemeColor(role, e.target.value));
-  box.appendChild(custom);
 }
 
-function setThemeColor(role, hex){
-  if (!hex) return;
-  if (role === 'path') pathColor = hex;
-  else progressColor = hex;
+function selectThemePreset(id){
+  const preset = THEME_PRESETS.find(p => p.id === id) || THEME_PRESETS[0];
+  themePresetId = preset.id;
+  pathColor = preset.path;
+  progressColor = preset.progress;
   document.documentElement.style.setProperty('--path', pathColor);
   document.documentElement.style.setProperty('--progress', progressColor);
-  const box = $(role === 'path' ? 'pathColorPicker' : 'progressColorPicker');
-  const custom = $(role === 'path' ? 'pathColorCustom' : 'progressColorCustom');
-  if (custom) custom.value = role === 'path' ? pathColor : progressColor;
-  box.querySelectorAll('.color-btn').forEach(b => {
-    const cur = role === 'path' ? pathColor : progressColor;
-    b.classList.toggle('active', b.dataset.color.toLowerCase() === cur.toLowerCase());
+  try { localStorage.setItem(LS_THEME_PRESET, themePresetId); } catch (e) { /* ignore */ }
+  const box = $('themePresetList');
+  if (box) box.querySelectorAll('.theme-preset-row').forEach(b => {
+    b.classList.toggle('active', b.dataset.preset === themePresetId);
   });
   applyMarkerIcon();
   if (map){
@@ -1113,10 +1112,14 @@ function setThemeColor(role, hex){
   }
 }
 
-buildColorPicker('pathColorPicker', 'path', pathColor);
-buildColorPicker('progressColorPicker', 'progress', progressColor);
-setThemeColor('path', pathColor);
-setThemeColor('progress', progressColor);
+(function restoreThemePreset(){
+  try {
+    const saved = localStorage.getItem(LS_THEME_PRESET);
+    if (saved && THEME_PRESETS.some(p => p.id === saved)) themePresetId = saved;
+  } catch (e) { /* ignore */ }
+})();
+buildThemePresetList();
+selectThemePreset(themePresetId);
 
 /* "도착 연출" UI was removed from settings for simplicity — arrivalMode still restores
  * from a prior choice if one was saved, otherwise stays at its default ('move'). */
@@ -1263,12 +1266,6 @@ function renderPlaceList(){
     list.appendChild(row);
   });
 }
-function placeLabel(c){
-  const name = c.customName || c.placeName || `장소 ${clusters.indexOf(c)+1}`;
-  return `${name} · 사진 ${c.photos.length}장`;
-}
-function dayPlaceLabel(c){ return `Day ${c.day} · ${placeLabel(c)}`; }
-
 function renderRoute(){
   if (!map.getSource('route-full')) return;
   const coords = clusters.map(c => [c.lon, c.lat]);
@@ -1311,14 +1308,16 @@ function selectCluster(i, fly){
     map.flyTo({ center:[c.lon,c.lat], zoom: Math.max(map.getZoom(),14), duration:400, essential:true });
   }
 
-  $('dpTitle').textContent = placeLabel(c);
+  $('dpTitle').textContent = placeTitle(c);
   const dayBadge = $('dpDayBadge');
   if (dayBadge) dayBadge.textContent = 'DAY ' + c.day;
   $('dpSub').textContent = `${fmtDateTime(c.startTime)}${c.endTime>c.startTime ? ' ~ '+fmtDateTime(c.endTime) : ''} · 위도 ${c.lat.toFixed(5)}, 경도 ${c.lon.toFixed(5)}`;
+  const galleryHead = $('dpGalleryHead');
+  if (galleryHead) galleryHead.textContent = `사진 ${c.photos.length}장`;
   const grid = $('dpGrid'); grid.innerHTML = '';
   c.photos.forEach((p, pi) => {
     const div = document.createElement('div');
-    div.className = 'ph' + (p===c.rep ? ' rep' : '');
+    div.className = 'ph';
     div.style.backgroundImage = `url(${p.url})`;
     div.title = p.name;
     div.addEventListener('click', () => openLightbox(c.photos, pi));
@@ -1363,6 +1362,7 @@ function closeDetail(){
 $('dpClose').addEventListener('click', closeDetail);
 if ($('navPrev')) $('navPrev').addEventListener('click', goToPrevCluster);
 if ($('navNext')) $('navNext').addEventListener('click', goToNextCluster);
+if ($('dpAddPhotos')) $('dpAddPhotos').addEventListener('click', () => $('filesInput').click());
 $('dpEdit').addEventListener('click', () => {
   if (activeCluster === null) return;
   const c = clusters[activeCluster];
