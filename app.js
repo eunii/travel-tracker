@@ -1,9 +1,12 @@
 "use strict";
 
 /* APP_MODE is set by an inline <script> in focus.html / overview.html before this
-   file loads. 'overview' = camera stays fixed on the whole-trip view; only the
-   traveling marker moves. Anything else (or unset) = original camera-follow behavior. */
-const OVERVIEW_MODE = (window.APP_MODE === 'overview');
+   file loads — it only picks the INITIAL mode now. 'overview' = camera stays fixed on
+   the whole-trip view; only the traveling marker moves. Anything else (or unset) =
+   original camera-follow behavior. The settings sheet's "지도 모드" segment reassigns
+   this at runtime via switchMapMode() so switching modes never reloads the page or
+   loses loaded photos. */
+let OVERVIEW_MODE = (window.APP_MODE === 'overview');
 
 /* ============ State ============ */
 let allPhotos = [];        // {file,url,lat,lon,time,w,h}
@@ -382,8 +385,6 @@ function refreshTripTitleUI(){
   if (el) el.textContent = getTripTitle();
   const ti = $('tiTitle');
   if (ti) ti.textContent = getTripTitle();
-  const ab = $('appbarTitle');
-  if (ab) ab.textContent = getTripTitle();
 }
 
 function tripDayLabel(){
@@ -711,119 +712,77 @@ function initMap(){
 }
 function emptyLine(){ return { type:'Feature', geometry:{ type:'LineString', coordinates:[] }, properties:{} }; }
 
-/* ============ Sidebar-as-sheet (opened via #mobileTabBar's "여정" tab) ============ */
-function openSidebar(){ $('sidebar').classList.add('open'); $('backdrop').classList.add('show'); }
-function closeSidebar(){ $('sidebar').classList.remove('open'); $('backdrop').classList.remove('show'); }
+/* ============ Bottom sheets: #sidebar("여정") and #sheetPhotos("사진"), opened via
+   #mobileTabBar — universal at every viewport width. ============ */
+const SHEET_IDS = ['sidebar', 'sheetPhotos'];
+function openSheet(id){
+  closeSettings();
+  SHEET_IDS.forEach(sid => { if (sid !== id) $(sid).classList.remove('open'); });
+  $(id).classList.add('open');
+  $('backdrop').classList.add('show');
+}
+function closeSheet(id){
+  $(id).classList.remove('open');
+  if (!SHEET_IDS.some(sid => $(sid).classList.contains('open'))) $('backdrop').classList.remove('show');
+}
+function closeAllSheets(){
+  SHEET_IDS.forEach(sid => $(sid).classList.remove('open'));
+  $('backdrop').classList.remove('show');
+}
+function openSidebar(){ openSheet('sidebar'); }
+function closeSidebar(){ closeSheet('sidebar'); }
 $('sidebarClose').addEventListener('click', closeSidebar);
-$('backdrop').addEventListener('click', closeSidebar);
+$('sheetPhotosClose').addEventListener('click', () => closeSheet('sheetPhotos'));
+$('backdrop').addEventListener('click', closeAllSheets);
 const isMobile = () => window.innerWidth <= 820;
 
-/* drag the whole sidebar open/closed: swipe its header to close, swipe in from the
-   left screen edge to open. Direction-locked so it never fights list scrolling.
-   Mobile now shows #sidebar as a bottom sheet (opened via #mobileTabBar's "여정" tab)
-   instead of a left-edge drawer, so these horizontal-drag gestures no longer apply —
-   opening/closing there goes through the tab bar, the close button, or the backdrop. */
-(function setupSidebarDrag(){
-  if (isMobile()) return;
-  const sidebar = $('sidebar'), backdrop = $('backdrop'), handle = sidebar.querySelector('h1');
-  const EDGE = 24;
-  let dragging = false, locked = null, startX = 0, startY = 0, baseX = 0, sidebarW = 0;
-
-  function begin(x, y, fromOpen){
-    sidebarW = sidebar.offsetWidth;
-    baseX = fromOpen ? 0 : -sidebarW;
-    startX = x; startY = y;
-    dragging = true; locked = null;
-    sidebar.style.transition = 'none';
-    backdrop.style.display = 'block';
-  }
-  function move(x, y){
-    if (!dragging) return false;
-    const dx = x - startX, dy = y - startY;
-    if (locked === null){
-      if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return false;
-      locked = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
-      if (locked === 'y'){ dragging = false; sidebar.style.transition = ''; backdrop.style.display = ''; return false; }
-    }
-    const pos = Math.max(-sidebarW, Math.min(0, baseX + dx));
-    sidebar.style.transform = `translateX(${pos}px)`;
-    backdrop.style.opacity = String(1 + pos / sidebarW);
-    return true;
-  }
-  function end(x){
-    if (!dragging) return;
-    dragging = false;
-    const dx = x - startX;
-    const pos = Math.max(-sidebarW, Math.min(0, baseX + dx));
-    sidebar.style.transition = '';
-    sidebar.style.transform = '';
-    backdrop.style.opacity = '';
-    backdrop.style.display = '';
-    if (pos > -sidebarW * 0.5) openSidebar(); else closeSidebar();
-  }
-
-  handle.addEventListener('touchstart', e => {
-    if (!isMobile() || !sidebar.classList.contains('open')) return;
-    begin(e.touches[0].clientX, e.touches[0].clientY, true);
-  }, {passive:true});
-  document.addEventListener('touchstart', e => {
-    if (!isMobile() || sidebar.classList.contains('open')) return;
-    const t = e.touches[0];
-    if (t.clientX <= EDGE) begin(t.clientX, t.clientY, false);
-  }, {passive:true});
-  document.addEventListener('touchmove', e => {
-    if (!dragging) return;
-    const t = e.touches[0];
-    if (move(t.clientX, t.clientY)) e.preventDefault();
-  }, {passive:false});
-  document.addEventListener('touchend', e => { if (dragging) end(e.changedTouches[0].clientX); });
-  document.addEventListener('touchcancel', () => {
-    if (!dragging) return;
-    dragging = false;
-    sidebar.style.transition = ''; sidebar.style.transform = '';
-    backdrop.style.opacity = ''; backdrop.style.display = '';
-  });
-})();
 if (/iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream){
   $('iosHint').style.display = 'block';
 }
-if (isMobile()) openSidebar(); // 처음엔 열어서 안내가 보이게
+if (isMobile()) openSheet('sheetPhotos'); // 처음엔 열어서 안내가 보이게
 
 function openSettings(){
   const el = $('settingsOverlay');
   if (!el) return;
-  el.classList.add('show');
+  closeAllSheets();
+  el.classList.add('open');
   el.setAttribute('aria-hidden', 'false');
 }
 function closeSettings(){
   const el = $('settingsOverlay');
   if (!el) return;
-  el.classList.remove('show');
+  el.classList.remove('open');
   el.setAttribute('aria-hidden', 'true');
 }
 if ($('settingsClose')) $('settingsClose').addEventListener('click', closeSettings);
 if (location.hash === '#settings') openSettings(); // deep link from index.html's "설정" card
 if ($('btnThemeToggle')) $('btnThemeToggle').addEventListener('click', toggleMapTheme);
 
-/* "지도 모드" segment in settings: real page navigation (OVERVIEW_MODE is a load-time
-   constant, not a runtime toggle — see app.js:6), guarded so loaded-but-unsaved photos
-   aren't silently lost. */
-document.querySelectorAll('.map-mode-link').forEach(link => {
-  const isCurrent = (link.dataset.target === 'overview') === OVERVIEW_MODE;
-  link.classList.toggle('active', isCurrent);
-  link.addEventListener('click', e => {
-    if (isCurrent){ e.preventDefault(); return; }
-    if (allPhotos.length && !confirm('화면을 전환하면 지금 불러온 사진이 모두 사라집니다. 계속할까요?')){
-      e.preventDefault();
-    }
+/* "지도 모드" segment in settings: switches OVERVIEW_MODE in place (no page navigation,
+ * no data loss — see the `let OVERVIEW_MODE` declaration up top). */
+function updateMapModeButtons(){
+  document.querySelectorAll('.map-mode-btn').forEach(btn => {
+    btn.classList.toggle('active', (btn.dataset.target === 'overview') === OVERVIEW_MODE);
   });
+}
+function switchMapMode(toOverview){
+  if (toOverview !== OVERVIEW_MODE){
+    pauseAnim();
+    OVERVIEW_MODE = toOverview;
+    camFollow = (OVERVIEW_MODE ? false : true);
+    if (clusters.length) fitToClusters();
+  }
+  updateMapModeButtons();
+}
+document.querySelectorAll('.map-mode-btn').forEach(btn => {
+  btn.addEventListener('click', () => switchMapMode(btn.dataset.target === 'overview'));
 });
+updateMapModeButtons();
 
-/* Mobile bottom tab bar: 맵/여정/사진/설정. Desktop never shows #mobileTabBar (CSS),
-   so these listeners are harmless no-ops there. */
-if ($('tabMap')) $('tabMap').addEventListener('click', () => { closeSidebar(); closeSettings(); });
-if ($('tabJourney')) $('tabJourney').addEventListener('click', () => openSidebar());
-if ($('tabPhotos')) $('tabPhotos').addEventListener('click', () => $('folderInput').click());
+/* Bottom tab bar: 맵/여정/사진/설정. Universal at every viewport width. */
+if ($('tabMap')) $('tabMap').addEventListener('click', () => { closeAllSheets(); closeSettings(); });
+if ($('tabJourney')) $('tabJourney').addEventListener('click', () => openSheet('sidebar'));
+if ($('tabPhotos')) $('tabPhotos').addEventListener('click', () => openSheet('sheetPhotos'));
 if ($('tabSettings')) $('tabSettings').addEventListener('click', () => openSettings());
 
 /* ============ File intake: folder picker ============ */
@@ -949,7 +908,7 @@ function resetState(){
   $('placelist').innerHTML = '';
   resetDayTimeline();
   closeDetail();
-  $('timeline').classList.remove('show');
+  $('btnPlay').classList.remove('show');
   if (map && map.getSource('route-full')) map.getSource('route-full').setData(emptyLine());
   if (map && map.getSource('route-progress')) map.getSource('route-progress').setData(emptyLine());
 }
@@ -1018,7 +977,7 @@ function buildClusters(radiusM, opts){
     setupAnimation();
     camFollow = (OVERVIEW_MODE ? false : true);
     fitToClusters();
-    if (isMobile()) closeSidebar();
+    closeSidebar();
   } else {
     // keep segment timing in sync without touching the camera / moving marker
     computeSegments();
@@ -1091,16 +1050,10 @@ function updateClusterLabel(idx){
   if (idx === 0) refreshTripTitleUI();
 }
 
+/* "여행 스케일" UI was removed from settings for simplicity — travelScale just stays at
+ * its default ('day') now, buildClusters() still reads it the same way. */
 const SCALE_PRESETS = { day: 150, city: 3000, country: 30000 };
 let travelScale = 'day';
-document.querySelectorAll('#scalePicker .scale-btn').forEach(btn => {
-  btn.classList.toggle('active', btn.dataset.scale === travelScale);
-  btn.addEventListener('click', () => {
-    travelScale = btn.dataset.scale;
-    document.querySelectorAll('#scalePicker .scale-btn').forEach(b => b.classList.toggle('active', b === btn));
-    if (allPhotos.length) buildClusters(SCALE_PRESETS[travelScale]);
-  });
-});
 
 /* ============ Moving marker color ============ */
 const COLOR_SWATCHES = [
@@ -1165,9 +1118,9 @@ buildColorPicker('progressColorPicker', 'progress', progressColor);
 setThemeColor('path', pathColor);
 setThemeColor('progress', progressColor);
 
-(function initArrivalModeOption(){
-  const box = $('arrivalModePicker');
-  if (!box) return;
+/* "도착 연출" UI was removed from settings for simplicity — arrivalMode still restores
+ * from a prior choice if one was saved, otherwise stays at its default ('move'). */
+(function restoreArrivalMode(){
   try {
     const saved = localStorage.getItem(LS_ARRIVAL_MODE);
     if (saved === 'move' || saved === 'popup') arrivalMode = saved;
@@ -1177,29 +1130,6 @@ setThemeColor('progress', progressColor);
       else if (legacy === '0') arrivalMode = 'move';
     }
   } catch (e) { /* ignore */ }
-  const syncBtns = () => {
-    box.querySelectorAll('.mode-btn').forEach(btn => {
-      btn.classList.toggle('active', btn.dataset.mode === arrivalMode);
-    });
-  };
-  syncBtns();
-  box.querySelectorAll('.mode-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const mode = btn.dataset.mode;
-      if (mode !== 'move' && mode !== 'popup') return;
-      if (arrivalMode === mode) return;
-      arrivalMode = mode;
-      try { localStorage.setItem(LS_ARRIVAL_MODE, arrivalMode); } catch (e) { /* ignore */ }
-      syncBtns();
-      if (arrivalMode === 'move') hideSpotCard();
-      if (clusters.length >= 2){
-        const ratio = animTotal > 0 ? animElapsed / animTotal : 0;
-        computeSegments();
-        animElapsed = Math.min(animTotal, ratio * animTotal);
-        if (animTotal > 0) renderFrame(animElapsed);
-      }
-    });
-  });
 })();
 
 /** Rebuilds the moving marker's DOM — just the progress-color dot, no icon badge. */
@@ -1275,14 +1205,32 @@ function renderDayTabs(){
   wrap.appendChild(del);
 }
 
+/** Index (into `clusters`) of the place row currently expanded inline in the journey
+ * list, or null. Lets a user tap through several places in a row and retitle each one
+ * without leaving the list (see toggleAccordion). Separate from the floating
+ * #detailpanel, which is still how a map pin click shows a place's full gallery. */
+let expandedIdx = null;
+function toggleAccordion(i){
+  expandedIdx = (expandedIdx === i) ? null : i;
+  renderPlaceList();
+  if (expandedIdx !== null){
+    const row = document.querySelector(`#placelist .place[data-idx="${expandedIdx}"]`);
+    if (row) row.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+}
+
 function renderPlaceList(){
   renderDayTabs();
   const list = $('placelist');
   list.innerHTML = '';
-  clusters.forEach((c, i) => {
-    if (selectedDay != null && c.day !== selectedDay) return;
+  const visible = clusters
+    .map((c, i) => ({ c, i }))
+    .filter(({ c }) => selectedDay == null || c.day === selectedDay);
+  if (expandedIdx != null && !visible.some(v => v.i === expandedIdx)) expandedIdx = null;
+
+  visible.forEach(({ c, i }, pos) => {
     const row = document.createElement('div');
-    row.className = 'place';
+    row.className = 'place' + (expandedIdx === i ? ' expanded' : '');
     row.dataset.idx = i;
 
     const timeEl = document.createElement('div');
@@ -1314,18 +1262,71 @@ function renderPlaceList(){
     row.appendChild(thumb);
     row.appendChild(meta);
 
+    const expandIcon = document.createElement('span');
+    expandIcon.className = 'list-expand-icon material-symbols-outlined';
+    expandIcon.textContent = 'expand_more';
+    row.appendChild(expandIcon);
+
     const locate = document.createElement('button');
     locate.type = 'button';
     locate.className = 'list-locate material-symbols-outlined';
-    locate.title = '이 장소로 이동';
+    locate.title = '지도에서 보기';
     locate.textContent = 'my_location';
     locate.addEventListener('click', e => {
       e.stopPropagation();
       selectCluster(i, true);
     });
     row.appendChild(locate);
-    row.addEventListener('click', () => selectCluster(i, true));
+    row.addEventListener('click', () => toggleAccordion(i));
     list.appendChild(row);
+
+    if (expandedIdx !== i) return;
+
+    const panel = document.createElement('div');
+    panel.className = 'place-accordion';
+    panel.addEventListener('click', e => e.stopPropagation());
+
+    const titleInput = document.createElement('input');
+    titleInput.type = 'text';
+    titleInput.className = 'pa-title-input';
+    titleInput.placeholder = '장소 이름';
+    titleInput.value = c.customName || c.placeName || `장소 ${i+1}`;
+    titleInput.addEventListener('change', () => {
+      c.customName = titleInput.value.trim() || undefined;
+      renderPlaceList();
+      renderDayTimeline();
+      refreshTripTitleUI();
+    });
+    panel.appendChild(titleInput);
+
+    const navRow = document.createElement('div');
+    navRow.className = 'pa-nav-row';
+    const prevBtn = document.createElement('button');
+    prevBtn.type = 'button';
+    prevBtn.className = 'pa-nav material-symbols-outlined';
+    prevBtn.textContent = 'expand_less';
+    prevBtn.title = '이전 장소';
+    prevBtn.disabled = pos === 0;
+    prevBtn.addEventListener('click', () => toggleAccordion(visible[pos - 1].i));
+    const nextBtn = document.createElement('button');
+    nextBtn.type = 'button';
+    nextBtn.className = 'pa-nav material-symbols-outlined';
+    nextBtn.textContent = 'expand_more';
+    nextBtn.title = '다음 장소';
+    nextBtn.disabled = pos === visible.length - 1;
+    nextBtn.addEventListener('click', () => toggleAccordion(visible[pos + 1].i));
+    const delBtn = document.createElement('button');
+    delBtn.type = 'button';
+    delBtn.className = 'pa-del material-symbols-outlined';
+    delBtn.textContent = 'delete';
+    delBtn.title = '이 장소 삭제';
+    delBtn.addEventListener('click', () => deleteCluster(i));
+    navRow.appendChild(prevBtn);
+    navRow.appendChild(nextBtn);
+    navRow.appendChild(delBtn);
+    panel.appendChild(navRow);
+
+    list.appendChild(panel);
   });
 }
 function placeLabel(c){
@@ -1401,7 +1402,7 @@ function selectCluster(i, fly){
   });
   bringPopupToFront($('detailpanel'));
   $('detailpanel').classList.add('show');
-  if (isMobile()) closeSidebar();
+  closeSidebar();
   updateNavButtons();
 }
 
@@ -1556,10 +1557,10 @@ function computeSegments(){
   if (clusters.length < 2){
     segDurations = []; segDwells = []; segKm = []; segLong = []; segNear = [];
     segHopZoom = []; segTight = []; segWindowZoom = []; segLocal = []; animTotal = 0;
-    $('timeline').classList.remove('show');
+    $('btnPlay').classList.remove('show');
     return false;
   }
-  $('timeline').classList.add('show');
+  $('btnPlay').classList.add('show');
   computeTripBaseZoom();
   segDurations = [];
   segKm = [];
@@ -1624,10 +1625,6 @@ function setupAnimation(){
     .setLngLat([clusters[0].lon, clusters[0].lat]).addTo(map);
   applyMarkerIcon();
 
-  $('tlNow').textContent = fmtDateShort(clusters[0].startTime);
-  $('tlEnd').textContent = fmtDateShort(clusters[clusters.length-1].startTime);
-  $('tlPlace').textContent = dayPlaceLabel(clusters[0]);
-  $('tlRange').value = 0;
   refreshTripTitleUI();
   renderFrame(0);
 }
@@ -1774,13 +1771,6 @@ function renderFrame(elapsed, frameDt){
     el.classList.toggle('active', idx === nearIdx);
     el.classList.toggle('visited', idx <= reachedIdx);
   });
-  $('tlPlace').textContent = dayPlaceLabel(clusters[nearIdx]);
-  if (phase.kind === 'dwell'){
-    $('tlNow').textContent = fmtDateShort(clusters[phase.clusterIdx].startTime);
-  } else {
-    $('tlNow').textContent = fmtDateShort(new Date(a.startTime.getTime() + (b.startTime - a.startTime) * segT));
-  }
-  $('tlRange').value = animTotal > 0 ? Math.round(elapsed / animTotal * 1000) : 0;
 }
 
 function renderIntroFrame(dtSec){
@@ -1904,7 +1894,7 @@ function stepAnim(ts){
   if (!isPlaying) return;
   if (lastFrameTs == null) lastFrameTs = ts;
   const rawDt = ts - lastFrameTs;
-  const speed = Number($('tlSpeed').value) || 1;
+  const speed = 1; // speed selector removed — always real-time now
   const dt = rawDt * speed;
   lastFrameTs = ts;
   const done = tickPlayback(dt);
@@ -1923,17 +1913,19 @@ function cancelPlayIntro(){
   }
 }
 
-function setTimelineCompact(on){
-  const tl = $('timeline');
-  if (!tl) return;
-  tl.classList.toggle('is-compact', !!on);
+/** Drives the #btnPlay play/pause glyph (CSS content, see style.css) — no more expand/
+ * collapse timeline card now that the bar has been stripped down to just this button. */
+function setPlayingState(on){
+  const btn = $('btnPlay');
+  if (!btn) return;
+  btn.classList.toggle('is-playing', !!on);
 }
 
 function playAnim(){
   if (clusters.length < 2 || isRecording) return;
   cancelPlayIntro();
   hideEndSummary();
-  setTimelineCompact(true);
+  setPlayingState(true);
 
   if (cineMode === 'intro' || cineMode === 'outro'){
     isPlaying = true;
@@ -1968,11 +1960,9 @@ function pauseAnim(){
   if (rafId) cancelAnimationFrame(rafId);
   rafId = null;
   syncMovingMarkerPlaying();
-  // While recording, the timeline stays compact (38px circular play/pause button) even
-  // though isRecording short-circuits the compact-off below — the pause/play icon itself
-  // is driven purely by the #timeline.is-compact CSS class (see #btnPlay markup), so
-  // leaving it compact here keeps showing the pause glyph, which is correct mid-recording.
-  if (!isRecording) setTimelineCompact(false);
+  // While recording, keep showing the pause glyph even though isRecording short-circuits
+  // the state reset below — recording always runs the animation start to finish.
+  if (!isRecording) setPlayingState(false);
 }
 
 function stopAnim(){
@@ -1986,7 +1976,7 @@ function stopAnim(){
   hideTripIntro();
   lastCamPhaseKey = null;
   lastPopPinIdx = null;
-  setTimelineCompact(false);
+  setPlayingState(false);
 }
 
 function pickRecorderMime(){
@@ -2466,7 +2456,7 @@ async function recordAndDownload(){
   isRecording = true;
   pauseAnim();
   closeDetail();
-  if (isMobile()) closeSidebar();
+  closeSidebar();
 
   const playBtn = $('btnPlay');
   if (playBtn) playBtn.disabled = true;
@@ -2499,7 +2489,7 @@ async function recordAndDownload(){
     setRecordStatus('');
     if (playBtn) playBtn.disabled = false;
     isRecording = false;
-    setTimelineCompact(false);
+    setPlayingState(false);
     camFollow = (OVERVIEW_MODE ? false : true);
     syncMovingMarkerPlaying();
   }
@@ -2510,7 +2500,7 @@ async function recordViaTabCapture({ mime, kind }){
   const mapwrap = $('mapwrap');
   setRecordStatus('이 탭 공유를 허용해 주세요…');
   mapwrap.classList.add('is-recording');
-  setTimelineCompact(true);
+  setPlayingState(true);
   map.resize();
 
   let displayStream = null;
@@ -2564,7 +2554,7 @@ async function recordViaTabCapture({ mime, kind }){
     });
     rec.start(100);
 
-    const speed = Number($('tlSpeed').value) || 1;
+    const speed = 1; // speed selector removed — always real-time now
     syncMovingMarkerPlaying();
     startCineIntro();
     await waitMapFrame();
@@ -2684,7 +2674,7 @@ async function recordViaCanvas({ mime, kind }){
   });
   rec.start(100);
 
-  const speed = Number($('tlSpeed').value) || 1;
+  const speed = 1; // speed selector removed — always real-time now
   syncMovingMarkerPlaying();
   startCineIntro();
   await waitMapFrame();
@@ -2786,49 +2776,6 @@ async function recordViaCanvas({ mime, kind }){
     else playAnim();
   });
 })();
-(() => {
-  const handle = $('tlHandle');
-  const timeline = $('timeline');
-  if (!handle || !timeline) return;
-  let startY = null;
-  handle.addEventListener('click', () => timeline.classList.toggle('collapsed'));
-  handle.addEventListener('pointerdown', e => { startY = e.clientY; });
-  handle.addEventListener('pointermove', e => {
-    if (startY == null) return;
-    const dy = e.clientY - startY;
-    if (dy > 24){ timeline.classList.add('collapsed'); startY = null; }
-    else if (dy < -24){ timeline.classList.remove('collapsed'); startY = null; }
-  });
-  handle.addEventListener('pointerup', () => { startY = null; });
-})();
-$('btnReplay').addEventListener('click', () => {
-  if (isRecording) return;
-  pauseAnim();
-  cancelPlayIntro();
-  animElapsed = 0;
-  cineMode = 'idle';
-  setTimelineCompact(false);
-  hideSpotCard();
-  hideEndSummary();
-  resetDayTimeline();
-  hideTripIntro();
-  camFollow = false;
-  camZoom = null; camLon = null; camLat = null;
-  lastPopPinIdx = null;
-  renderFrame(0);
-  fitToClusters();
-});
-$('tlRange').addEventListener('input', e => {
-  if (isRecording) return;
-  pauseAnim();
-  cancelPlayIntro();
-  cineMode = 'main';
-  hideEndSummary();
-  hideTripIntro();
-  animElapsed = Number(e.target.value)/1000 * animTotal;
-  camFollow = (OVERVIEW_MODE ? false : true);
-  renderFrame(animElapsed);
-});
 $('btnTripTitle').addEventListener('click', () => {
   if (!clusters.length) return;
   const val = prompt('여행 제목', getTripTitle());

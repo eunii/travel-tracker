@@ -15,8 +15,8 @@
 <body>
 <div id="app">
   <div id="recordStatus" aria-live="polite"></div>
-  <div id="sidebar">
-    <h1><span class="material-symbols-outlined">location_on</span> 여행 트레커 <button id="sidebarClose" class="material-symbols-outlined">close</button></h1>
+  <div id="sheetPhotos" class="bottom-sheet">
+    <h1><span class="material-symbols-outlined">add_a_photo</span> 사진 추가 <button id="sheetPhotosClose" class="material-symbols-outlined">close</button></h1>
     <div class="hint">폴더를 선택하면 안의 모든 사진(하위 폴더 포함)을 읽어 GPS/촬영시각을 추출합니다. 사진은 서버로 전송되지 않고 브라우저 안에서만 처리됩니다.</div>
     <div class="ios-hint" id="iosHint">📱 iPhone은 "폴더 선택"이 지원되지 않습니다. 아래 <b>🖼️ 사진 여러 장 선택</b> 버튼으로 갤러리에서 사진을 여러 장 골라주세요.</div>
 
@@ -39,9 +39,12 @@
       <div class="stat"><div class="n" id="statPlaces">0</div><div class="l">장소(클러스터)</div></div>
       <div class="stat"><div class="n" id="statRange" style="font-size:12px;">-</div><div class="l">기간</div></div>
     </div>
+  </div>
 
+  <div id="sidebar" class="bottom-sheet">
+    <h1><span class="material-symbols-outlined">route</span> 여정 <button id="sidebarClose" class="material-symbols-outlined">close</button></h1>
     <div id="empty">
-      아직 불러온 사진이 없습니다.<br>위 폴더 선택 버튼으로 시작해 보세요.
+      아직 여정이 없습니다.<br>"사진" 탭에서 사진을 추가해 보세요.
     </div>
     <div id="tripTitleTab" class="trip-title-row" style="display:none;">
       <div style="flex:1;min-width:0;">
@@ -59,7 +62,8 @@
     <div id="backdrop"></div>
 
     <div id="appbar" class="glass-panel">
-      <h1 id="appbarTitle">여행 트레커</h1>
+      <span class="appbar-spacer" aria-hidden="true"></span>
+      <h1 id="appbarTitle">TRAVEL TRACKER</h1>
       <button id="btnThemeToggle" class="material-symbols-outlined" title="지도 밝기 전환">dark_mode</button>
     </div>
 
@@ -113,27 +117,9 @@
     </div>
 
 
-    <div id="timeline">
-      <button type="button" class="tl-handle" id="tlHandle" title="재생바 접기/펼치기" aria-label="재생바 접기/펼치기"></button>
-      <div class="tl-body">
-        <button id="btnPlay" title="탭: 재생/일시정지 · 길게 누르면 동영상으로 저장"><span class="material-symbols-outlined tl-play-icon"></span><span class="tl-btn-label">미리보기</span></button>
-        <div class="tl-mid">
-          <input type="range" id="tlRange" min="0" max="1000" value="0">
-          <div class="tl-labels">
-            <span id="tlNow">-</span>
-            <span id="tlPlace">-</span>
-            <span id="tlEnd">-</span>
-          </div>
-        </div>
-        <select id="tlSpeed">
-          <option value="0.5">0.5×</option>
-          <option value="1" selected>1×</option>
-          <option value="2">2×</option>
-          <option value="4">4×</option>
-        </select>
-        <button class="btn-icon material-symbols-outlined" id="btnReplay" title="처음으로">replay</button>
-      </div>
-    </div>
+    <button id="btnPlay" title="탭: 재생/일시정지 · 길게 누르면 동영상으로 저장">
+      <span class="material-symbols-outlined tl-play-icon"></span>
+    </button>
   </div>
 </div>
 
@@ -144,21 +130,9 @@
   <button type="button" class="mt-btn" id="tabSettings" data-tab="settings" title="설정" aria-label="설정"><span class="material-symbols-outlined">tune</span></button>
 </nav>
 
-<div id="settingsOverlay" aria-hidden="true">
-  <div class="settings-head glass-panel">
-    <h2><span class="material-symbols-outlined">tune</span> 설정</h2>
-    <button id="settingsClose" class="material-symbols-outlined" title="닫기">close</button>
-  </div>
+<div id="settingsOverlay" class="bottom-sheet" aria-hidden="true">
+  <h1><span class="material-symbols-outlined">tune</span> 설정 <button id="settingsClose" class="material-symbols-outlined">close</button></h1>
   <div class="settings-body">
-    <section class="settings-card">
-      <h3>여행 스케일</h3>
-      <div id="scalePicker" class="scale-picker">
-        <button class="scale-btn" data-scale="day"><span class="material-symbols-outlined">holiday_village</span><span>하루 나들이</span></button>
-        <button class="scale-btn" data-scale="city"><span class="material-symbols-outlined">location_city</span><span>도시간 이동</span></button>
-        <button class="scale-btn" data-scale="country"><span class="material-symbols-outlined">public</span><span>국가간 이동</span></button>
-      </div>
-    </section>
-
     <section class="settings-card">
       <h3>테마 색상</h3>
       <div class="ctrl-row"><span>전체 경로 색</span></div>
@@ -168,26 +142,14 @@
     </section>
 
     <section class="settings-card">
-      <h3>도착 연출</h3>
-      <div id="arrivalModePicker" class="mode-picker">
-        <button type="button" class="mode-btn active" data-mode="move">이동만
-          <span class="mode-sub">상단 진행 바만</span>
-        </button>
-        <button type="button" class="mode-btn" data-mode="popup">팝업
-          <span class="mode-sub">상단 바 + 사진 슬라이드</span>
-        </button>
-      </div>
-    </section>
-
-    <section class="settings-card">
       <h3>지도 모드</h3>
       <div class="mode-picker">
-        <a href="focus.html" class="mode-btn map-mode-link" data-target="focus">포커스 지도
+        <button type="button" class="mode-btn map-mode-btn" data-target="focus">포커스 지도
           <span class="mode-sub">카메라가 따라 이동</span>
-        </a>
-        <a href="overview.html" class="mode-btn map-mode-link" data-target="overview">전체지도
+        </button>
+        <button type="button" class="mode-btn map-mode-btn" data-target="overview">전체지도
           <span class="mode-sub">전체 고정, 위치만 이동</span>
-        </a>
+        </button>
       </div>
     </section>
   </div>

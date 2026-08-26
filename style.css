@@ -17,21 +17,22 @@
     font-family:var(--font-body);}
   #app{display:flex;height:100vh;height:100dvh;width:100%;overflow:hidden;}
 
-  /* ---------- Sidebar (as a bottom sheet, opened via #mobileTabBar's "여정" tab —
-     universal at every viewport width, not just mobile) ---------- */
-  #sidebar{background:var(--panel);
+  /* ---------- Bottom sheets (#sidebar="여정", #sheetPhotos="사진") — opened via
+     #mobileTabBar tabs, universal at every viewport width, not just mobile. Both share
+     this class so they present identically. ---------- */
+  .bottom-sheet{background:var(--panel);
     display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;
     position:fixed;left:0;right:0;bottom:0;top:auto;z-index:15;
     width:auto;max-width:480px;margin:0 auto;max-height:75vh;border-radius:20px 20px 0 0;
     transform:translateY(100%);transition:transform .25s ease;box-shadow:0 -10px 40px rgba(0,0,0,.2);
     padding-bottom:calc(72px + env(safe-area-inset-bottom));}
-  #sidebar.open{transform:translateY(0);}
-  #sidebar h1{font-family:var(--font-display);font-size:20px;letter-spacing:.2px;margin:0;
+  .bottom-sheet.open{transform:translateY(0);}
+  .bottom-sheet h1{font-family:var(--font-display);font-size:20px;letter-spacing:.2px;margin:0;
     padding:18px 16px 6px;font-weight:600;text-wrap:balance;
     display:flex;align-items:center;gap:8px;}
-  #sidebar h1 > .material-symbols-outlined:first-child{color:var(--accent);font-size:20px;}
-  #sidebar h1 #sidebarClose{margin-left:auto;}
-  #sidebar .hint{padding:0 16px 12px;color:var(--sub);font-size:12px;line-height:1.6;}
+  .bottom-sheet h1 > .material-symbols-outlined:first-child{color:var(--accent);font-size:20px;}
+  .bottom-sheet h1 button{margin-left:auto;}
+  .bottom-sheet .hint{padding:0 16px 12px;color:var(--sub);font-size:12px;line-height:1.6;}
 
   .dropzone{margin:0 16px 12px;border:2px dashed var(--border);border-radius:10px;
     padding:18px 12px;text-align:center;font-size:13px;color:var(--sub);cursor:pointer;
@@ -77,14 +78,6 @@
   .color-picker .color-custom::-webkit-color-swatch-wrapper{padding:0;}
   .color-picker .color-custom::-webkit-color-swatch{border:none;border-radius:50%;}
 
-  .scale-picker{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;}
-  .scale-picker .scale-btn{display:flex;flex-direction:column;align-items:center;gap:4px;
-    padding:10px 4px;border-radius:10px;background:var(--panel2);border:1px solid var(--border);
-    color:var(--sub);font-size:11px;font-weight:600;}
-  .scale-picker .scale-btn .material-symbols-outlined{font-size:20px;color:var(--progress, var(--good));}
-  .scale-picker .scale-btn:hover{border-color:var(--accent);}
-  .scale-picker .scale-btn.active{border-color:var(--accent);background:rgba(77,159,255,.15);color:var(--text);}
-
   #progress{padding:0 16px 12px;font-size:12px;color:var(--sub);display:none;}
   #progress .bar{height:4px;background:var(--panel2);border-radius:2px;overflow:hidden;margin-top:6px;}
   #progress .bar i{display:block;height:100%;width:0%;background:var(--accent);transition:.15s;}
@@ -119,6 +112,28 @@
     background:color-mix(in srgb, var(--accent) 14%, transparent);color:var(--accent);font-size:16px;
     display:flex;align-items:center;justify-content:center;padding:0;}
   .place .list-locate:hover{background:var(--accent);color:#fff;}
+  .place .list-expand-icon{flex-shrink:0;font-size:18px;color:var(--sub);transition:transform .2s ease;}
+  .place.expanded{background:var(--panel2);border-radius:14px 14px 0 0;}
+  .place.expanded .list-expand-icon{transform:rotate(180deg);color:var(--accent);}
+
+  /* Inline accordion — tap a place row to expand this panel right below it, so titles
+     can be edited one after another without leaving the list (prev/next moves the
+     expanded row up/down). Separate from the floating #detailpanel opened by map pins. */
+  .place-accordion{background:var(--panel2);border-radius:0 0 14px 14px;padding:10px 12px 12px;
+    margin:-4px 0 8px;display:flex;flex-direction:column;gap:8px;}
+  .place-accordion .pa-title-input{width:100%;background:var(--panel);border:1px solid var(--border);
+    border-radius:10px;color:var(--text);font-size:13px;font-weight:600;padding:9px 12px;
+    font-family:var(--font-body);}
+  .place-accordion .pa-title-input:focus{outline:none;border-color:var(--accent);}
+  .place-accordion .pa-nav-row{display:flex;align-items:center;gap:6px;}
+  .place-accordion .pa-nav{width:32px;height:32px;border-radius:8px;background:var(--panel);
+    border:1px solid var(--border);color:var(--text);font-size:18px;
+    display:flex;align-items:center;justify-content:center;padding:0;}
+  .place-accordion .pa-nav:hover{border-color:var(--accent);}
+  .place-accordion .pa-nav:disabled{opacity:.35;pointer-events:none;}
+  .place-accordion .pa-del{margin-left:auto;width:32px;height:32px;border-radius:8px;background:none;
+    color:var(--sub);font-size:16px;display:flex;align-items:center;justify-content:center;padding:0;}
+  .place-accordion .pa-del:hover{color:var(--accent2);}
 
   #empty{padding:24px 16px;color:var(--sub);font-size:13px;line-height:1.6;text-align:center;}
 
@@ -126,41 +141,37 @@
   #mapwrap{flex:1;position:relative;}
   #map{position:absolute;inset:0;}
 
-  /* Top app bar: trip title (left) + map dark/light toggle (right). Settings now lives
-     solely in #mobileTabBar, so this bar carries nothing else. */
+  /* Top app bar: fixed logotype title (centered) + map dark/light toggle (right).
+     A spacer matching the toggle button's width balances the left side so the title
+     stays truly centered. Settings now lives solely in #mobileTabBar. */
   #appbar{position:absolute;top:calc(12px + env(safe-area-inset-top));
     left:calc(12px + env(safe-area-inset-left));right:calc(12px + env(safe-area-inset-right));
-    height:48px;border-radius:24px;z-index:20;display:flex;align-items:center;gap:4px;padding:0 8px 0 16px;}
+    height:48px;border-radius:24px;z-index:20;display:flex;align-items:center;gap:4px;padding:0 8px;}
   #appbar button{width:36px;height:36px;border-radius:50%;flex-shrink:0;padding:0;
     background:none;color:var(--sub);font-size:20px;display:flex;align-items:center;justify-content:center;}
   #appbar button:hover{background:var(--panel2);}
-  #appbarTitle{flex:1;min-width:0;margin:0;font-family:var(--font-display);
-    font-size:15px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  #appbar .appbar-spacer{width:36px;flex-shrink:0;}
+  #appbarTitle{flex:1;min-width:0;margin:0;text-align:center;font-family:var(--font-display);
+    font-size:14px;font-weight:800;letter-spacing:.06em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
     color:var(--accent);}
 
   /* Prev/next location floating buttons — only meaningful once a place is selected */
-  #navPrev,#navNext{position:absolute;top:50%;transform:translateY(-50%);z-index:18;display:none;}
+  /* bottom-anchored (not top:50%) so #navNext never collides with the right-edge
+     #btnPlay circle, which sits vertically centered on the same right edge. */
+  #navPrev,#navNext{position:absolute;bottom:110px;z-index:18;display:none;}
   #navPrev{left:calc(12px + env(safe-area-inset-left));}
   #navNext{right:calc(12px + env(safe-area-inset-right));}
   #mapwrap:has(#detailpanel.show) #navPrev,
   #mapwrap:has(#detailpanel.show) #navNext{display:flex;}
 
-  /* Settings overlay */
-  #settingsOverlay{position:fixed;inset:0;z-index:60;background:rgba(6,10,20,.6);
-    display:none;flex-direction:column;backdrop-filter:blur(4px);}
-  #settingsOverlay.show{display:flex;}
-  #settingsOverlay .settings-head{flex-shrink:0;margin:calc(12px + env(safe-area-inset-top)) 16px 0;
-    border-radius:20px;padding:14px 18px;display:flex;align-items:center;justify-content:space-between;}
-  #settingsOverlay .settings-head h2{margin:0;font-family:var(--font-display);font-size:17px;
-    font-weight:700;display:flex;align-items:center;gap:8px;color:var(--text);}
-  #settingsOverlay .settings-head h2 .material-symbols-outlined{color:var(--accent);}
-  #settingsOverlay #settingsClose{background:none;color:var(--sub);font-size:20px;padding:4px;}
-  #settingsOverlay .settings-body{flex:1;overflow-y:auto;padding:16px;padding-bottom:calc(32px + env(safe-area-inset-bottom));
-    display:flex;flex-direction:column;gap:12px;max-width:520px;width:100%;margin:0 auto;}
-  .settings-card{background:var(--panel);border:1px solid var(--border);border-radius:18px;padding:16px;}
+  /* Settings sheet — shares .bottom-sheet with #sidebar/#sheetPhotos so all three
+     popups look and behave the same way (see openSettings/closeSettings in app.js,
+     which toggle the same .open class the other two sheets use). */
+  #settingsOverlay .settings-body{padding:0 16px 16px;display:flex;flex-direction:column;gap:12px;}
+  .settings-card{background:var(--panel2);border:1px solid var(--border);border-radius:14px;padding:14px;}
   .settings-card h3{margin:0 0 10px;font-family:var(--font-display);font-size:13px;font-weight:700;color:var(--text);}
   .settings-card .ctrl-row{border:none;}
-  .mode-picker .map-mode-link{text-decoration:none;display:block;}
+  .mode-picker .map-mode-btn{text-decoration:none;display:block;width:100%;}
 
   #detailpanel{position:absolute;top:calc(12px + env(safe-area-inset-top));
     right:calc(12px + env(safe-area-inset-right));width:300px;max-height:calc(100% - 100px);
@@ -235,8 +246,10 @@
 
   /* DAY timeline — one day per card, places as a dot-and-line progress track that fills
      left-to-right as playback advances. Swapped (with a fade-in) whenever the day changes. */
+  /* top offset clears #appbar (48px tall, starting at 12px + safe-top) so the DAY badge
+     never overlaps the title bar while playing. */
   .day-timeline{position:absolute;left:calc(12px + env(safe-area-inset-left));
-    right:calc(12px + env(safe-area-inset-right));top:calc(10px + env(safe-area-inset-top));
+    right:calc(12px + env(safe-area-inset-right));top:calc(72px + env(safe-area-inset-top));
     z-index:12;pointer-events:none;}
   .day-timeline[aria-hidden="true"]{display:none;}
 
@@ -308,11 +321,6 @@
   #spotCard .sc-photo.swap{opacity:0;}
   #spotCard .sc-slide-count{margin-top:6px;font-size:11px;color:#667085;text-align:right;
     font-variant-numeric:tabular-nums;}
-  #mapwrap:has(#timeline.is-compact) #spotCard{
-    bottom:calc(56px + env(safe-area-inset-bottom));}
-  #mapwrap:has(#timeline.is-compact) #endSummary{
-    padding-bottom:calc(64px + env(safe-area-inset-bottom));}
-
   #endSummary{position:absolute;inset:0;z-index:13;display:flex;align-items:flex-end;justify-content:center;
     padding:24px;padding-bottom:calc(110px + env(safe-area-inset-bottom));pointer-events:none;
     opacity:0;visibility:hidden;transition:opacity .45s ease, visibility .45s;
@@ -328,64 +336,23 @@
   #endSummary .es-l{font-size:10px;color:#667085;letter-spacing:.04em;margin-top:2px;}
   #endSummary .es-note{margin-top:10px;font-size:11px;color:#667085;text-align:center;line-height:1.4;}
 
-  /* timeline */
-  #timeline{position:absolute;left:calc(12px + env(safe-area-inset-left));
-    right:calc(12px + env(safe-area-inset-right));bottom:calc(12px + env(safe-area-inset-bottom));
-    background:color-mix(in srgb, var(--panel) 90%, transparent);
-    backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid var(--outline);border-radius:20px;
-    display:none;flex-direction:column;box-shadow:0 10px 28px rgba(0,0,0,.4);
-    max-height:200px;overflow:hidden;z-index:7;
-    transition:max-height .3s cubic-bezier(.4,0,.2,1);}
-  #timeline.show{display:flex;}
-  #timeline .tl-handle{width:100%;height:24px;margin:0;border-radius:0;background:transparent;
-    border:none;padding:0;flex-shrink:0;cursor:pointer;touch-action:none;
-    display:flex;align-items:center;justify-content:center;}
-  #timeline .tl-handle::before{content:"keyboard_arrow_down";font-family:'Material Symbols Outlined';
-    display:flex;align-items:center;justify-content:center;
-    width:36px;height:17px;border-radius:9px;background:var(--panel2);border:1px solid var(--border);
-    color:var(--text);font-size:15px;line-height:1;}
-  #timeline .tl-handle:hover::before{border-color:var(--accent);color:var(--accent);}
-  #timeline.collapsed .tl-handle::before{content:"keyboard_arrow_up";}
-  #timeline .tl-body{display:flex;align-items:center;gap:10px;padding:0 16px 10px 8px;
-    transition:padding .25s ease, gap .25s ease;}
-  #timeline button{width:34px;height:34px;border-radius:50%;background:var(--panel2);color:var(--text);
-    border:1px solid var(--border);overflow:hidden;white-space:nowrap;
-    font-size:14px;flex-shrink:0;display:flex;align-items:center;justify-content:center;padding:0;}
-  #timeline #btnPlay{width:auto;min-width:44px;height:44px;padding:0 16px;
-    border-radius:999px;font-size:13px;font-weight:700;gap:6px;
-    background:var(--accent);color:#fff;border:none;
-    box-shadow:0 4px 14px color-mix(in srgb, var(--accent) 45%, transparent);}
-  #btnPlay .tl-play-icon{font-size:18px;}
+  /* Play/record button — a single small floating circle on the right edge. Tap toggles
+     play/pause (icon swapped via .is-playing, see app.js setPlayingState); a long-press
+     confirms and starts recording (app.js). No scrubber/speed/replay bar anymore. */
+  #btnPlay{display:none;position:absolute;right:calc(16px + env(safe-area-inset-right));
+    top:50%;transform:translateY(-50%);z-index:18;
+    width:52px;height:52px;border-radius:50%;padding:0;border:none;
+    background:var(--accent);color:#fff;
+    box-shadow:0 6px 20px rgba(0,0,0,.25), 0 4px 14px color-mix(in srgb, var(--accent) 45%, transparent);
+    align-items:center;justify-content:center;}
+  #btnPlay.show{display:flex;}
+  #btnPlay:hover{filter:brightness(1.08);}
+  #btnPlay:disabled{opacity:.7;cursor:wait;}
+  #btnPlay .tl-play-icon{font-size:22px;}
   #btnPlay .tl-play-icon::before{content:"play_arrow";}
-  #timeline.is-compact #btnPlay .tl-play-icon::before{content:"pause";}
-  #timeline.is-compact #btnPlay .tl-play-icon{font-size:22px;}
-  #timeline.is-compact #btnPlay .tl-btn-label{display:none;}
-  #timeline #btnPlay:hover{filter:brightness(1.08);}
-  #timeline #btnReplay:hover{border-color:var(--accent);}
-  #timeline #btnPlay:disabled{opacity:.7;cursor:wait;}
-  #timeline .tl-mid{flex:1;display:flex;flex-direction:column;gap:2px;min-width:0;}
-  #timeline input[type=range]{width:100%;accent-color:var(--accent);}
-  #timeline .tl-labels{display:flex;justify-content:space-between;font-size:11px;color:var(--sub);
-    font-variant-numeric:tabular-nums;}
-  #timeline select{background:var(--panel2);color:var(--text);border:1px solid var(--border);
-    border-radius:999px;font-size:11px;font-weight:700;padding:6px 10px;flex-shrink:0;}
-  /* Playing: collapse the card down to a single floating circular play/pause button —
-     no bar chrome behind it, centered in the same bottom-anchored strip the card uses. */
-  #timeline.is-compact{background:transparent;border:none;box-shadow:none;
-    border-radius:999px;pointer-events:none;}
-  #timeline.is-compact .tl-handle{display:none;}
-  #timeline.is-compact .tl-body{padding:0;gap:0;justify-content:center;pointer-events:none;}
-  #timeline.is-compact #tlSpeed,
-  #timeline.is-compact #btnReplay,
-  #timeline.is-compact .tl-labels,
-  #timeline.is-compact .tl-mid{display:none;}
-  #timeline.is-compact #btnPlay{width:56px;height:56px;min-width:56px;padding:0;font-size:20px;
-    pointer-events:auto;
-    box-shadow:0 6px 20px rgba(0,0,0,.45), 0 4px 14px color-mix(in srgb, var(--accent) 45%, transparent);}
-  #timeline.collapsed{max-height:26px;}
+  #btnPlay.is-playing .tl-play-icon::before{content:"pause";}
 
   /* Recording: hide chrome inside mapwrap (DOM capture = WYSIWYG) */
-  #mapwrap.is-recording #timeline,
   #mapwrap.is-recording #detailpanel,
   #mapwrap.is-recording #backdrop,
   #mapwrap.is-recording #appbar,
@@ -440,7 +407,7 @@
   /* sit just above the playback bar instead of the default bottom corner */
   .maplibregl-ctrl-bottom-right{bottom:calc(94px + env(safe-area-inset-bottom)) !important;}
 
-  #sidebarClose{display:block;background:none;color:var(--sub);font-size:18px;padding:4px 8px;}
+  #sidebarClose,#sheetPhotosClose{display:block;background:none;color:var(--sub);font-size:18px;padding:4px 8px;}
   #backdrop{display:none;position:fixed;inset:0;background:rgba(15,23,42,.35);z-index:14;}
   #backdrop.show{display:block;}
   .ios-hint{display:none;margin:0 16px 12px;padding:8px 10px;background:rgba(255,193,7,.1);
@@ -463,24 +430,17 @@
   #mobileTabBar .mt-btn.active .material-symbols-outlined{background:var(--progress, var(--accent));color:#fff;}
   body:has(#sidebar.open) #mobileTabBar #tabJourney .material-symbols-outlined{
     background:var(--progress, var(--accent));color:#fff;}
-  body:has(#settingsOverlay.show) #mobileTabBar #tabSettings .material-symbols-outlined{
+  body:has(#sheetPhotos.open) #mobileTabBar #tabPhotos .material-symbols-outlined{
     background:var(--progress, var(--accent));color:#fff;}
-  body:not(:has(#sidebar.open)):not(:has(#settingsOverlay.show)) #mobileTabBar #tabMap .material-symbols-outlined{
+  body:has(#settingsOverlay.open) #mobileTabBar #tabSettings .material-symbols-outlined{
     background:var(--progress, var(--accent));color:#fff;}
-
-  /* clear #mobileTabBar sitting at the very bottom of the screen, at every width */
-  #timeline{bottom:calc(80px + env(safe-area-inset-bottom));}
+  body:not(:has(#sidebar.open)):not(:has(#sheetPhotos.open)):not(:has(#settingsOverlay.open))
+    #mobileTabBar #tabMap .material-symbols-outlined{background:var(--progress, var(--accent));color:#fff;}
 
   /* ---------- Narrow screens ---------- */
   @media (max-width: 820px){
     #detailpanel{left:calc(12px + env(safe-area-inset-left));right:calc(12px + env(safe-area-inset-right));
       width:auto;top:auto;bottom:calc(156px + env(safe-area-inset-bottom));max-height:34vh;}
-    /* Bug: this used to be set on #timeline (the outer column wrapper, which never has
-       more than 2 items) instead of .tl-body (the actual button+scrubber row) — so on
-       phones the row never wrapped, .tl-mid's flex-basis:100% below had nothing to wrap
-       into, and the whole row shrank/overflowed instead (buttons squeezed to near 0px). */
-    #timeline .tl-body{flex-wrap:wrap;padding:8px 10px;}
-    #timeline .tl-mid{order:3;flex-basis:100%;}
     #lightbox .lb-nav{width:38px;height:38px;font-size:18px;}
   }
 
