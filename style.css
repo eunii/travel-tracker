@@ -356,14 +356,20 @@
     font-variant-numeric:tabular-nums;}
   #timeline select{background:var(--panel2);color:var(--text);border:1px solid var(--border);
     border-radius:999px;font-size:11px;font-weight:700;padding:6px 10px;flex-shrink:0;}
-  #timeline.is-compact{border-radius:10px;}
-  #timeline.is-compact .tl-body{padding:6px 8px;gap:8px;}
+  /* Playing: collapse the card down to a single floating circular play/pause button —
+     no bar chrome behind it, centered in the same bottom-anchored strip the card uses. */
+  #timeline.is-compact{background:transparent;border:none;box-shadow:none;
+    border-radius:999px;pointer-events:none;}
+  #timeline.is-compact .tl-handle{display:none;}
+  #timeline.is-compact .tl-body{padding:0;gap:0;justify-content:center;pointer-events:none;}
   #timeline.is-compact #btnRecord,
   #timeline.is-compact #tlSpeed,
   #timeline.is-compact #btnReplay,
-  #timeline.is-compact .tl-labels{display:none;}
-  #timeline.is-compact #btnPlay{width:38px;height:38px;min-width:38px;padding:0;font-size:15px;}
-  #timeline.is-compact .tl-mid{gap:0;}
+  #timeline.is-compact .tl-labels,
+  #timeline.is-compact .tl-mid{display:none;}
+  #timeline.is-compact #btnPlay{width:56px;height:56px;min-width:56px;padding:0;font-size:20px;
+    pointer-events:auto;
+    box-shadow:0 6px 20px rgba(0,0,0,.45), 0 4px 14px color-mix(in srgb, var(--accent) 45%, transparent);}
   #timeline.collapsed{max-height:26px;}
 
   /* Recording: hide chrome inside mapwrap (DOM capture = WYSIWYG) */
@@ -443,9 +449,11 @@
     #sidebarClose{display:block;}
     #detailpanel{left:calc(12px + env(safe-area-inset-left));right:calc(12px + env(safe-area-inset-right));
       width:auto;top:auto;bottom:calc(88px + env(safe-area-inset-bottom));max-height:38vh;}
-    #timeline{flex-wrap:wrap;padding:8px 10px;}
+    /* Bug: this used to be set on #timeline (the outer column wrapper, which never has
+       more than 2 items) instead of .tl-body (the actual button+scrubber row) — so on
+       phones the row never wrapped, .tl-mid's flex-basis:100% below had nothing to wrap
+       into, and the whole row shrank/overflowed instead (buttons squeezed to near 0px). */
+    #timeline .tl-body{flex-wrap:wrap;padding:8px 10px;}
     #timeline .tl-mid{order:3;flex-basis:100%;}
-    #timeline.is-compact{flex-wrap:nowrap;padding:6px 10px;}
-    #timeline.is-compact .tl-mid{order:0;flex-basis:auto;}
     #lightbox .lb-nav{width:38px;height:38px;font-size:18px;}
   }
